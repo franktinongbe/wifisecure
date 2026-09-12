@@ -1,0 +1,14 @@
+node_modules
+.next
+.env
+.env.local
+.env.*.local
+coverage
+npm-debug.log*
+.DS_Store
+*.tsbuildinfo
+apps/api/dist
+apps/web/.next
+apps/web/node_modules
+apps/api/node_modules
+prisma/dev.db

@@ -1,0 +1,84 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
+import { prisma } from '../lib/db.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
+import { asyncHandler } from '../lib/async-handler.js';
+
+const router = Router();
+
+const userSelect = {
+  id: true,
+  email: true,
+  fullName: true,
+  role: true,
+  isActive: true,
+  createdAt: true,
+} as const;
+
+router.get('/', requireAuth, requireRole('admin'), asyncHandler(async (_req, res) => {
+  const users = await prisma.user.findMany({
+    orderBy: { createdAt: 'desc' },
+    select: userSelect,
+  });
+
+  res.json(users);
+}));
+
+const createUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  fullName: z.string().min(2),
+  role: z.enum(['admin', 'agent']),
+});
+
+router.post('/', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const parsed = createUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ message: 'Données invalides.', errors: parsed.error.flatten() });
+  }
+
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+
+  try {
+    const user = await prisma.user.create({
+      data: {
+        email: parsed.data.email,
+        passwordHash,
+        fullName: parsed.data.fullName,
+        role: parsed.data.role,
+      },
+      select: userSelect,
+    });
+
+    res.status(201).json(user);
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.status(409).json({ message: 'Un compte existe déjà avec cet e-mail.' });
+    }
+    throw err;
+  }
+}));
+
+router.patch('/:id/deactivate', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  if (req.user?.id === req.params.id) {
+    return res.status(400).json({ message: 'Vous ne pouvez pas désactiver votre propre compte.' });
+  }
+
+  try {
+    const user = await prisma.user.update({
+      where: { id: req.params.id },
+      data: { isActive: false },
+      select: userSelect,
+    });
+    res.json(user);
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+      return res.status(404).json({ message: 'Utilisateur introuvable.' });
+    }
+    throw err;
+  }
+}));
+
+export default router;
