@@ -1,4 +1,4 @@
-import { LucideIcon } from 'lucide-react';
+import { LucideIcon, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 interface StatCardProps {
   label: string;
@@ -26,11 +26,17 @@ export function StatCard({ label, value, description, icon: Icon, trend }: StatC
         <p className="text-3xl font-semibold text-slate-900">{value}</p>
         {trend && (
           <span
-            className={`text-xs font-medium ${
+            className={`flex items-center gap-0.5 text-xs font-medium ${
               trend.isPositive ? 'text-emerald-600' : 'text-rose-600'
             }`}
           >
-            {trend.isPositive ? '+' : ''}{trend.value}
+            {trend.isPositive ? (
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            ) : (
+              <ArrowDownRight className="h-3.5 w-3.5" />
+            )}
+            {trend.isPositive ? '+' : '-'}
+            {trend.value}
           </span>
         )}
       </div>

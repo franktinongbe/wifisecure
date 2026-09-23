@@ -3,34 +3,28 @@ import { prisma } from '../lib/db.js';
 export async function getLiveStats() {
   const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
-  const [activeSessions, recentSessions] = await Promise.all([
+  const [activeSessions, recentVolume, averageDuration] = await Promise.all([
     prisma.session.count({
       where: {
         fin: null,
         debut: { lte: new Date() },
       },
     }),
-    prisma.session.findMany({
+    prisma.session.aggregate({
       where: {
         debut: { gte: fiveMinutesAgo },
       },
-      select: { volumeOctets: true },
+      _sum: { volumeOctets: true },
     }),
+    prisma.$queryRaw<Array<{ averageSessionMinutes: number | null }>>`
+      SELECT AVG(EXTRACT(EPOCH FROM ("fin" - "debut")) / 60.0)::double precision AS "averageSessionMinutes"
+      FROM "sessions"
+      WHERE "fin" IS NOT NULL
+    `,
   ]);
 
-  const totalBytes = recentSessions.reduce((sum, session) => sum + Number(session.volumeOctets), 0);
-
-  const completedSessions = await prisma.session.findMany({
-    where: { fin: { not: null } },
-    select: { debut: true, fin: true },
-  });
-
-  const averageSessionMinutes = completedSessions.length
-    ? completedSessions.reduce((sum, session) => {
-        const durationMs = new Date(session.fin!).getTime() - new Date(session.debut).getTime();
-        return sum + durationMs / 60000;
-      }, 0) / completedSessions.length
-    : 0;
+  const totalBytes = Number(recentVolume._sum.volumeOctets ?? 0);
+  const averageSessionMinutes = averageDuration[0]?.averageSessionMinutes ?? 0;
 
   return {
     activeUsers: activeSessions,
@@ -47,31 +41,27 @@ export async function getSummary(period: 'day' | 'week' | 'month') {
   if (period === 'week') start.setDate(now.getDate() - 7);
   if (period === 'month') start.setMonth(now.getMonth() - 1);
 
-  const [sessions, uniqueUsers, totalVolume] = await Promise.all([
-    prisma.session.findMany({
+  const [sessionTotals, uniqueUsers, averageDuration] = await Promise.all([
+    prisma.session.aggregate({
       where: { debut: { gte: start } },
-      select: { volumeOctets: true, debut: true, fin: true },
+      _sum: { volumeOctets: true },
+      _count: { _all: true },
     }),
     prisma.session.groupBy({
       by: ['identifiantUsager'],
       where: { debut: { gte: start } },
     }),
-    prisma.session.aggregate({
-      where: { debut: { gte: start } },
-      _sum: { volumeOctets: true },
-    }),
+    prisma.$queryRaw<Array<{ averageSessionMinutes: number | null }>>`
+      SELECT AVG(EXTRACT(EPOCH FROM ("fin" - "debut")) / 60.0)::double precision AS "averageSessionMinutes"
+      FROM "sessions"
+      WHERE "debut" >= ${start} AND "fin" IS NOT NULL
+    `,
   ]);
-
-  const totalSessionsSeconds = sessions.reduce((sum, session) => {
-    if (!session.fin) return sum;
-    const durationMs = new Date(session.fin).getTime() - new Date(session.debut).getTime();
-    return sum + durationMs / 1000;
-  }, 0);
 
   return {
     period,
-    totalVolumeBytes: Number(totalVolume._sum.volumeOctets ?? 0),
+    totalVolumeBytes: Number(sessionTotals._sum.volumeOctets ?? 0),
     uniqueUsers: uniqueUsers.length,
-    averageSessionMinutes: sessions.length ? (totalSessionsSeconds / sessions.length) / 60 : 0,
+    averageSessionMinutes: averageDuration[0]?.averageSessionMinutes ?? 0,
   };
 }

@@ -25,7 +25,10 @@ async function main() {
   // 3. Insérer les domaines bloqués
   console.log('Création des domaines bloqués...');
   await Promise.all(
-    seedBlockedDomains.map((domain) => prisma.blockedDomain.create({ data: domain }))
+    seedBlockedDomains.flatMap((domain) => [
+      prisma.blockedDomain.create({ data: { ...domain, role: Role.agent } }),
+      prisma.blockedDomain.create({ data: { ...domain, role: Role.admin } }),
+    ])
   );
 
   // 4. Insérer les paramètres système

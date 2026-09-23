@@ -29,13 +29,14 @@ router.put('/threshold', requireAuth, requireRole('admin'), asyncHandler(async (
   res.json(setting);
 }));
 
-router.get('/domains', requireAuth, requireRole('admin'), asyncHandler(async (_req, res) => {
-  const domains = await prisma.blockedDomain.findMany({ orderBy: { domain: 'asc' } });
+router.get('/domains', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const role = req.query.role === 'admin' ? 'admin' : 'agent';
+  const domains = await prisma.blockedDomain.findMany({ where: { role }, orderBy: { domain: 'asc' } });
   res.json(domains);
 }));
 
 router.post('/domains', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  const schema = z.object({ domain: z.string().min(3) });
+  const schema = z.object({ domain: z.string().min(3), role: z.enum(['admin', 'agent']) });
   const parsed = schema.safeParse(req.body);
 
   if (!parsed.success) {
@@ -43,19 +44,21 @@ router.post('/domains', requireAuth, requireRole('admin'), asyncHandler(async (r
   }
 
   const domain = await prisma.blockedDomain.upsert({
-    where: { domain: parsed.data.domain },
+    where: { domain_role: { domain: parsed.data.domain, role: parsed.data.role } },
     update: { active: true },
-    create: { domain: parsed.data.domain, active: true },
+    create: { domain: parsed.data.domain, role: parsed.data.role, active: true },
   });
 
   res.status(201).json(domain);
 }));
 
-router.delete('/domains/:domain', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+router.delete('/domains/:role/:domain', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const domain = req.params.domain;
+  const role = req.params.role === 'admin' ? 'admin' : req.params.role === 'agent' ? 'agent' : null;
+  if (!role) return res.status(400).json({ message: 'Rôle invalide.' });
 
   try {
-    await prisma.blockedDomain.delete({ where: { domain } });
+    await prisma.blockedDomain.delete({ where: { domain_role: { domain, role } } });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
       return res.status(404).json({ message: 'Domaine introuvable.' });

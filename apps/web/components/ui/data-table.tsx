@@ -1,9 +1,9 @@
-import React from 'react';
+import { ReactNode } from 'react';
 
 export interface Column<T> {
   header: string;
   accessorKey?: keyof T;
-  cell?: (item: T) => React.ReactNode;
+  cell?: (item: T) => ReactNode;
 }
 
 interface DataTableProps<T> {
@@ -24,8 +24,8 @@ export function DataTable<T>({
       <table className="min-w-full text-left text-sm">
         <thead className="border-b border-slate-200 text-slate-500">
           <tr>
-            {columns.map((col, idx) => (
-              <th key={idx} className="py-3 pr-4 font-medium">
+            {columns.map((col) => (
+              <th key={col.header} className="py-3 pr-4 font-medium">
                 {col.header}
               </th>
             ))}
@@ -40,9 +40,12 @@ export function DataTable<T>({
             </tr>
           ) : (
             data.map((item) => (
-              <tr key={keyExtractor(item)} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50">
-                {columns.map((col, idx) => (
-                  <td key={idx} className="py-3 pr-4">
+              <tr
+                key={keyExtractor(item)}
+                className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50"
+              >
+                {columns.map((col) => (
+                  <td key={col.header} className="py-3 pr-4">
                     {col.cell
                       ? col.cell(item)
                       : col.accessorKey

@@ -43,6 +43,7 @@ model Session {
   id                String        @id @default(uuid())
   identifiantUsager String
   appareil          String
+  role              Role          @default(agent)
   debut             DateTime
   fin               DateTime?
   volumeOctets      BigInt
@@ -53,16 +54,21 @@ model Session {
 
   alerts Alert[]
 
+  @@index([role, debut])
+  @@index([debut])
+  @@index([fin, debut])
   @@map("sessions")
 }
 
 model BlockedDomain {
   id        String   @id @default(uuid())
-  domain    String   @unique
+  domain    String
+  role      Role     @default(agent)
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedBy String?
 
+  @@unique([domain, role])
   @@map("domaines_bloques")
 }
 

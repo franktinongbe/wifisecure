@@ -28,6 +28,8 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "bcrypt": "^6.0.0"
+    "@supabase/server": "^1.8.0",
+    "bcrypt": "^6.0.0",
+    "lucide-react": "^1.47.0"
   }
 }

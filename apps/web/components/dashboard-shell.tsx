@@ -1,5 +1,10 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Bell, BookOpenText, LayoutDashboard, LogOut, Settings, ShieldCheck, Users } from 'lucide-react';
+import { apiFetch } from '../lib/api-client';
+import { useRealtimeRefresh } from '../lib/use-realtime-refresh';
 
 const navItems = [
   { href: '/', label: 'Synthèse', icon: LayoutDashboard },
@@ -17,9 +22,38 @@ export function DashboardShell({
   subtitle: string;
   children: React.ReactNode;
 }) {
+  const [user, setUser] = useState<{ email: string; fullName: string; role: 'admin' | 'agent' } | null>(null);
+  async function refreshUser() {
+    try {
+      const response = await apiFetch('/api/auth/me');
+      if (!response.ok) { window.location.assign('/login'); return; }
+      const result = await response.json();
+      setUser(result.user);
+    } catch {
+      window.location.assign('/login');
+    }
+  }
+  useEffect(() => { void refreshUser(); }, []);
+  useRealtimeRefresh(refreshUser, 30000);
+
+  async function logout() {
+    try { await apiFetch('/api/auth/logout', { method: 'POST' }); }
+    finally { window.location.assign('/login'); }
+  }
+
+  const visibleNavItems = navItems.filter(({ href }) => user?.role === 'admin' || (href !== '/users' && href !== '/settings'));
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6 lg:px-6">
+      <div className="mx-auto max-w-7xl px-4 py-4 lg:px-6">
+        <nav aria-label="Navigation principale" className="mb-4 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm lg:hidden">
+          <Link href="/" className="font-semibold text-brand-700">WiFiSecure</Link>
+          <div className="flex items-center gap-3 text-sm">
+            {visibleNavItems.map(({ href, label }) => <Link key={href} href={href} className="text-slate-600 hover:text-brand-700">{label}</Link>)}
+            <button onClick={logout} className="text-slate-600 hover:text-rose-700" aria-label="Déconnexion"><LogOut className="h-4 w-4" /></button>
+          </div>
+        </nav>
+      </div>
+      <div className="mx-auto flex max-w-7xl gap-6 px-4 pb-6 lg:px-6">
         <aside className="hidden w-72 shrink-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:block">
           <div className="flex items-center gap-3 border-b border-slate-200 pb-5">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
@@ -32,7 +66,7 @@ export function DashboardShell({
           </div>
 
           <nav className="mt-6 space-y-2">
-            {navItems.map(({ href, label, icon: Icon }) => (
+            {visibleNavItems.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
                 href={href}
@@ -49,10 +83,10 @@ export function DashboardShell({
               <ShieldCheck className="h-4 w-4" />
               Accès sécurisé
             </div>
-            <p className="mt-2 text-brand-600">Rôle : administrateur</p>
+            <p className="mt-2 text-brand-600">{user ? `${user.fullName} · ${user.role === 'admin' ? 'Administrateur' : 'Utilisateur'}` : 'Chargement du compte…'}</p>
           </div>
 
-          <button className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-200">
+          <button onClick={logout} className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-200">
             <LogOut className="h-4 w-4" />
             Déconnexion
           </button>
@@ -67,17 +101,20 @@ export function DashboardShell({
                 <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
               </div>
               <div className="flex items-center gap-3">
-                <button className="rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700">
+                <a href={`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/export?format=csv&period=week`} className="rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700">
                   Exporter CSV
-                </button>
+                </a>
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-100 text-brand-700">
-                  <span className="text-sm font-semibold">AL</span>
+                  <span className="text-sm font-semibold">{user?.fullName.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase() ?? '…'}</span>
                 </div>
               </div>
             </div>
           </header>
 
           <div className="mt-6">{children}</div>
+          <footer className="mt-10 border-t border-slate-200 py-5 text-center text-xs text-slate-500">
+            © {new Date().getFullYear()} WiFiSecure · CAEB – Fondation Vallet
+          </footer>
         </main>
       </div>
     </div>

@@ -8,6 +8,7 @@ export type SessionCreateInput = {
   fin?: string | null;
   volume_octets: number;
   domaine_dns?: string | null;
+  role?: 'admin' | 'agent';
 };
 
 export async function getThresholdBytes() {
@@ -15,9 +16,9 @@ export async function getThresholdBytes() {
   return Number(setting?.value ?? 2_147_483_648);
 }
 
-export async function getBlockedDomains() {
+export async function getBlockedDomains(role: 'admin' | 'agent' = 'agent') {
   const domains = await prisma.blockedDomain.findMany({
-    where: { active: true },
+    where: { active: true, role },
     select: { domain: true },
   });
 
@@ -26,12 +27,14 @@ export async function getBlockedDomains() {
 
 export async function ingestSession(input: SessionCreateInput) {
   const threshold = await getThresholdBytes();
-  const blockedDomains = await getBlockedDomains();
+  const role = input.role ?? 'agent';
+  const blockedDomains = await getBlockedDomains(role);
 
   const session = await prisma.session.create({
     data: {
       identifiantUsager: input.identifiant_usager,
       appareil: input.appareil,
+      role,
       debut: new Date(input.debut),
       fin: input.fin ? new Date(input.fin) : null,
       volumeOctets: BigInt(Math.round(input.volume_octets)),

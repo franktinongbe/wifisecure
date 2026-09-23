@@ -30,6 +30,7 @@ const ingestSchema = z.object({
   fin: z.string().datetime().nullable().optional(),
   volume_octets: z.number().nonnegative(),
   domaine_dns: z.string().optional().nullable(),
+  role: z.enum(['admin', 'agent']).optional(),
 });
 
 router.post('/ingest', async (req, res) => {

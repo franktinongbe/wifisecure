@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { DashboardShell } from '../../components/dashboard-shell';
+import { apiFetch } from '../../lib/api-client';
+import { useRealtimeRefresh } from '../../lib/use-realtime-refresh';
 
 interface Session {
   id: string;
-  userId: string;
-  domain?: string | null;
+  identifiantUsager: string;
+  domaineDns?: string | null;
 }
 
 interface Alert {
@@ -22,30 +24,34 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'resolved'>('all');
 
   // Chargement des alertes depuis le backend
-  const fetchAlerts = async () => {
+  const fetchAlerts = async (quiet = false) => {
+    if (!quiet) setLoading(true);
     try {
-      const response = await fetch('/api/alerts');
+      const response = await apiFetch('/api/alerts');
       if (!response.ok) throw new Error('Impossible de charger les alertes');
       const data = await response.json();
       setAlerts(data);
+      setError(null);
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue');
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAlerts();
+    void fetchAlerts();
   }, []);
+  useRealtimeRefresh(() => fetchAlerts(true), 10000);
 
   // Action pour marquer une alerte comme traitée
   const handleResolveAlert = async (alertId: string) => {
     setUpdatingId(alertId);
     try {
-      const response = await fetch(`/api/alerts/${alertId}/resolve`, {
+      const response = await apiFetch(`/api/alerts/${alertId}/resolve`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -70,11 +76,12 @@ export default function AlertsPage() {
   // Calcul des compteurs d'alertes
   const activeAlertsCount = alerts.filter((a) => a.status === 'active').length;
   const blockedDomainCount = alerts.filter(
-    (a) => a.type.toLowerCase() === 'domaine bloqué' || a.type.toLowerCase() === 'blocked_domain'
+    (a) => a.type.toLowerCase() === 'domaine_bloque'
   ).length;
   const highVolumeCount = alerts.filter(
-    (a) => a.type.toLowerCase() === 'volume élevé' || a.type.toLowerCase() === 'high_volume'
+    (a) => a.type.toLowerCase() === 'volume_eleve'
   ).length;
+  const visibleAlerts = statusFilter === 'all' ? alerts : alerts.filter((item) => item.status === statusFilter);
 
   return (
     <DashboardShell
@@ -102,9 +109,9 @@ export default function AlertsPage() {
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-lg font-semibold">Sessions signalées</h3>
-            <button className="rounded-xl border border-slate-200 bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors">
-              Filtrer
-            </button>
+            <select aria-label="Filtrer les alertes par statut" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="rounded-xl border border-slate-200 bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700">
+              <option value="all">Toutes</option><option value="active">Actives</option><option value="resolved">Traitées</option>
+            </select>
           </div>
 
           {loading ? (
@@ -126,19 +133,19 @@ export default function AlertsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {alerts.length === 0 ? (
+                  {visibleAlerts.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="py-6 text-center text-slate-500">
                         Aucune alerte enregistrée.
                       </td>
                     </tr>
                   ) : (
-                    alerts.map((alertItem) => (
+                    visibleAlerts.map((alertItem) => (
                       <tr key={alertItem.id} className="border-b border-slate-100 last:border-b-0">
                         <td className="py-3 pr-4 font-medium text-slate-700">{alertItem.id}</td>
-                        <td className="py-3 pr-4">{alertItem.session?.userId ?? '—'}</td>
+                        <td className="py-3 pr-4">{alertItem.session?.identifiantUsager ?? '—'}</td>
                         <td className="py-3 pr-4 capitalize text-slate-700">{alertItem.type}</td>
-                        <td className="py-3 pr-4">{alertItem.session?.domain ?? '—'}</td>
+                        <td className="py-3 pr-4">{alertItem.session?.domaineDns ?? '—'}</td>
                         <td className="py-3 pr-4">
                           {new Date(alertItem.createdAt).toLocaleDateString('fr-FR', {
                             hour: '2-digit',

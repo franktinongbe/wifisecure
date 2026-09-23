@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '../../lib/api-client';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,7 +19,7 @@ export default function LoginPage() {
     const password = form.get('password');
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -39,8 +40,12 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
-      <div className="grid w-full max-w-5xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-soft lg:grid-cols-2">
+    <main className="flex min-h-screen flex-col bg-slate-100 p-4">
+      <nav aria-label="Navigation principale" className="mx-auto mb-6 flex w-full max-w-5xl items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
+        <a href="/login" className="font-semibold text-brand-700">WiFiSecure</a>
+        <span className="text-sm text-slate-500">Portail de connexion Wi-Fi</span>
+      </nav>
+      <div className="mx-auto grid w-full max-w-5xl flex-1 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-soft lg:grid-cols-2">
         <div className="bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500 p-8 text-white">
           <p className="text-xs uppercase tracking-[0.26em] text-brand-100">CAEB – Fondation Vallet</p>
           <h1 className="mt-8 text-4xl font-semibold">WiFiSecure</h1>
@@ -123,6 +128,7 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+      <footer className="mx-auto mt-6 w-full max-w-5xl py-3 text-center text-xs text-slate-500">© {new Date().getFullYear()} WiFiSecure · CAEB – Fondation Vallet</footer>
     </main>
   );
 }

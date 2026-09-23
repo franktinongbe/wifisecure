@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { DashboardShell } from '../../components/dashboard-shell';
 import { apiFetch } from '../../lib/api-client';
+import { useRealtimeRefresh } from '../../lib/use-realtime-refresh';
 
 const THRESHOLD_KEY = 'session_volume_alert_threshold_bytes';
 
@@ -14,8 +15,10 @@ export default function SettingsPage() {
   const [thresholdBytes, setThresholdBytes] = useState<number | null>(null);
   const [domains, setDomains] = useState<string[]>([]);
   const [newDomain, setNewDomain] = useState('');
+  const [domainRole, setDomainRole] = useState<'agent' | 'admin'>('agent');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [thresholdDirty, setThresholdDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,7 +26,7 @@ export default function SettingsPage() {
       try {
         const [settingsRes, domainsRes] = await Promise.all([
           apiFetch('/api/settings'),
-          apiFetch('/api/settings/domains'),
+          apiFetch(`/api/settings/domains?role=${domainRole}`),
         ]);
 
         if (!settingsRes.ok || !domainsRes.ok) throw new Error('load-failed');
@@ -33,6 +36,7 @@ export default function SettingsPage() {
 
         const threshold = settings.find((s) => s.key === THRESHOLD_KEY);
         setThresholdBytes(threshold ? Number(threshold.value) : 2 * 1024 ** 3);
+        setThresholdDirty(false);
         setDomains(domainList.map((d) => d.domain));
       } catch {
         setError('Impossible de charger les paramètres.');
@@ -42,7 +46,26 @@ export default function SettingsPage() {
     }
 
     load();
-  }, []);
+  }, [domainRole]);
+
+  async function refreshSettings() {
+    try {
+      const [settingsRes, domainsRes] = await Promise.all([
+        apiFetch('/api/settings'),
+        apiFetch(`/api/settings/domains?role=${domainRole}`),
+      ]);
+      if (!settingsRes.ok || !domainsRes.ok) return;
+      const settings: { key: string; value: string }[] = await settingsRes.json();
+      const domainList: { domain: string }[] = await domainsRes.json();
+      const threshold = settings.find((setting) => setting.key === THRESHOLD_KEY);
+      if (!thresholdDirty) setThresholdBytes(threshold ? Number(threshold.value) : 2 * 1024 ** 3);
+      setDomains(domainList.map((domain) => domain.domain));
+      setError(null);
+    } catch {
+      // Keep the latest displayed values if a background refresh fails.
+    }
+  }
+  useRealtimeRefresh(refreshSettings, 15000);
 
   async function handleSaveThreshold(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -56,6 +79,7 @@ export default function SettingsPage() {
         body: JSON.stringify({ value: thresholdBytes }),
       });
       if (!res.ok) throw new Error('save-failed');
+      setThresholdDirty(false);
     } catch {
       setError("Impossible d'enregistrer le seuil.");
     } finally {
@@ -72,7 +96,7 @@ export default function SettingsPage() {
     try {
       const res = await apiFetch('/api/settings/domains', {
         method: 'POST',
-        body: JSON.stringify({ domain }),
+        body: JSON.stringify({ domain, role: domainRole }),
       });
       if (!res.ok) throw new Error('add-failed');
       setDomains((prev) => (prev.includes(domain) ? prev : [...prev, domain].sort()));
@@ -88,7 +112,7 @@ export default function SettingsPage() {
     setDomains((prev) => prev.filter((d) => d !== domain)); // mise à jour optimiste
 
     try {
-      const res = await apiFetch(`/api/settings/domains/${encodeURIComponent(domain)}`, {
+      const res = await apiFetch(`/api/settings/domains/${domainRole}/${encodeURIComponent(domain)}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('remove-failed');
@@ -117,7 +141,7 @@ export default function SettingsPage() {
                 type="number"
                 min={1}
                 value={thresholdBytes ?? ''}
-                onChange={(e) => setThresholdBytes(Number(e.target.value))}
+                onChange={(e) => { setThresholdBytes(Number(e.target.value)); setThresholdDirty(true); }}
                 disabled={loading}
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-brand-500 focus:bg-white disabled:opacity-60"
               />
@@ -139,7 +163,11 @@ export default function SettingsPage() {
 
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold">Domaines bloqués</h3>
-          <p className="mt-2 text-sm text-slate-500">Liste des domaines DNS signalés comme sensibles ou non autorisés sur le réseau public.</p>
+          <p className="mt-2 text-sm text-slate-500">Tout est autorisé par défaut. Choisissez le rôle auquel appliquer cette liste de blocage.</p>
+          <div className="mt-4 flex gap-2" role="tablist" aria-label="Rôle de la liste de blocage">
+            <button type="button" role="tab" aria-selected={domainRole === 'agent'} onClick={() => setDomainRole('agent')} className={`rounded-xl px-3 py-2 text-sm ${domainRole === 'agent' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'}`}>Utilisateurs</button>
+            <button type="button" role="tab" aria-selected={domainRole === 'admin'} onClick={() => setDomainRole('admin')} className={`rounded-xl px-3 py-2 text-sm ${domainRole === 'admin' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700'}`}>Administrateurs</button>
+          </div>
 
           <form className="mt-5 flex gap-3" onSubmit={handleAddDomain}>
             <input

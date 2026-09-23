@@ -1,6 +1,13 @@
 import { prisma } from '../lib/db.js';
 
 export class AlertService {
+  static async getAlertCounts() {
+    return prisma.alert.groupBy({
+      by: ['status'],
+      _count: { _all: true },
+    });
+  }
+
   /**
    * Récupère la liste des alertes triées par date de création avec la session associée.
    */

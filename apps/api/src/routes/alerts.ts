@@ -4,6 +4,19 @@ import { AlertService } from '../services/alertService.js';
 
 const router = Router();
 
+router.get('/counts', requireAuth, async (_req, res) => {
+  try {
+    const grouped = await AlertService.getAlertCounts();
+    return res.json({
+      active: grouped.find((item) => item.status === 'active')?._count._all ?? 0,
+      resolved: grouped.find((item) => item.status === 'resolved')?._count._all ?? 0,
+    });
+  } catch (error) {
+    console.error('Erreur lors du comptage des alertes:', error);
+    return res.status(500).json({ error: 'Erreur serveur lors du comptage des alertes.' });
+  }
+});
+
 // GET /api/alerts - Liste des alertes
 router.get('/', requireAuth, async (_req, res) => {
   try {

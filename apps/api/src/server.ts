@@ -14,6 +14,11 @@ import exportRoutes from './routes/export.js';
 const app = express();
 const PgSession = connectPgSimple(session);
 
+// Prisma returns BigInt for byte counters, which JSON.stringify cannot encode.
+app.set('json replacer', (_key: string, value: unknown) =>
+  typeof value === 'bigint' ? value.toString() : value,
+);
+
 app.use(cors({
   origin: true,
   credentials: true,
