@@ -2,6 +2,8 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../lib/db.js';
+import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
+import { asyncHandler } from '../lib/async-handler.js';
 
 const router = Router();
 
@@ -10,7 +12,7 @@ const loginSchema = z.object({
   password: z.string().min(6),
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', asyncHandler(async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ message: 'Identifiants invalides.', errors: parsed.error.flatten() });
@@ -36,7 +38,7 @@ router.post('/login', async (req, res) => {
       role: user.role,
     },
   });
-});
+}));
 
 router.post('/logout', async (req, res) => {
   req.session?.destroy((err: any) => {
@@ -48,7 +50,7 @@ router.post('/logout', async (req, res) => {
   });
 });
 
-router.get('/me', async (req, res) => {
+router.get('/me', asyncHandler(async (req, res) => {
   const sessionUser = (req as any).session?.user;
   if (!sessionUser) {
     return res.status(401).json({ message: 'Non authentifié.' });
@@ -63,7 +65,21 @@ router.get('/me', async (req, res) => {
     return res.status(401).json({ message: 'Utilisateur non trouvé.' });
   }
 
-  res.json({ user });
+  res.json({ user, networkAccess: (req as any).session?.networkAccess ?? null });
+}));
+
+// Simulates a captive-portal grant for local testing. It never routes real traffic.
+router.post('/network/connect', requireAuth, requireRole('agent'), (req: AuthenticatedRequest, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(503).json({ message: 'La simulation du réseau est désactivée en production.' });
+  }
+
+  (req as any).session.networkAccess = {
+    status: 'connected',
+    mode: 'simulated',
+    connectedAt: new Date().toISOString(),
+  };
+  return res.json({ status: 'connected', mode: 'simulated', internetAvailable: false });
 });
 
 export default router;

@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { prisma } from '../lib/db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
   const period = req.query.period as 'day' | 'week' | 'month' | undefined;
   const now = new Date();
   const start = new Date(now);

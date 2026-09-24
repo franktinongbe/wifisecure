@@ -35,6 +35,7 @@ model User {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  newsPosts    NewsPost[]
 
   @@map("users")
 }
@@ -48,16 +49,76 @@ model Session {
   fin               DateTime?
   volumeOctets      BigInt
   domaineDns        String?
+  adresseIp         String?
+  adresseMac        String?
+  navigateur        String?
   status            SessionStatus @default(normal)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
   alerts Alert[]
+  blocks BlockedDevice[]
 
   @@index([role, debut])
   @@index([debut])
   @@index([fin, debut])
   @@map("sessions")
+}
+
+model NewsPost {
+  id          String   @id @default(uuid())
+  title       String   @db.VarChar(180)
+  summary     String?  @db.VarChar(360)
+  content     String   @db.Text
+  published   Boolean  @default(false)
+  publishedAt DateTime?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author User? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  attachments NewsAttachment[]
+
+  @@index([createdBy])
+  @@index([published, publishedAt])
+  @@map("actualites_bibliotheque")
+}
+
+model NewsAttachment {
+  id           String   @id @default(uuid())
+  newsPostId   String
+  fileName     String   @db.VarChar(255)
+  storagePath  String   @unique
+  contentType  String   @db.VarChar(100)
+  sizeBytes    Int
+  createdAt    DateTime @default(now())
+
+  newsPost NewsPost @relation(fields: [newsPostId], references: [id], onDelete: Cascade)
+
+  @@index([newsPostId, createdAt])
+  @@map("actualite_pieces_jointes")
+}
+
+model BlockedDevice {
+  id                String   @id @default(uuid())
+  adresseMac        String   @unique
+  adresseIp         String?
+  identifiantUsager String
+  appareil          String
+  navigateur        String?
+  infraction        String
+  sessionId         String
+  active            Boolean  @default(true)
+  blockedAt         DateTime @default(now())
+  blockedBy         String
+  unblockedAt       DateTime?
+  unblockedBy       String?
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([active, blockedAt])
+  @@index([sessionId])
+  @@map("appareils_bloques")
 }
 
 model BlockedDomain {

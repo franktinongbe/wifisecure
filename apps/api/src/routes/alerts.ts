@@ -1,10 +1,16 @@
 import { Router } from 'express';
-import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
+import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
 import { AlertService } from '../services/alertService.js';
+import { isWhatsAppConfigured } from '../services/whatsappService.js';
+import { isUniFiConfigured } from '../services/unifiService.js';
 
 const router = Router();
 
-router.get('/counts', requireAuth, async (_req, res) => {
+router.get('/integrations', requireAuth, requireRole('admin'), (_req, res) => {
+  res.json({ whatsappConfigured: isWhatsAppConfigured(), unifiConfigured: isUniFiConfigured() });
+});
+
+router.get('/counts', requireAuth, requireRole('admin'), async (_req, res) => {
   try {
     const grouped = await AlertService.getAlertCounts();
     return res.json({
@@ -18,7 +24,7 @@ router.get('/counts', requireAuth, async (_req, res) => {
 });
 
 // GET /api/alerts - Liste des alertes
-router.get('/', requireAuth, async (_req, res) => {
+router.get('/', requireAuth, requireRole('admin'), async (_req, res) => {
   try {
     const alerts = await AlertService.getAllAlerts();
     return res.json(alerts);
@@ -29,7 +35,7 @@ router.get('/', requireAuth, async (_req, res) => {
 });
 
 // PATCH /api/alerts/:id/resolve - Marquer une alerte comme traitée
-router.patch('/:id/resolve', requireAuth, async (req: AuthenticatedRequest, res) => {
+router.patch('/:id/resolve', requireAuth, requireRole('admin'), async (req: AuthenticatedRequest, res) => {
   try {
     const alertId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const resolvedBy = req.user?.email ?? 'system';

@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Bell, BookOpenText, LayoutDashboard, LogOut, Settings, ShieldCheck, Users } from 'lucide-react';
-import { apiFetch } from '../lib/api-client';
+import { Archive, Bell, BookOpenText, LayoutDashboard, LogOut, Settings, ShieldCheck, Users, List, Newspaper } from 'lucide-react';
+import { API_URL, apiFetch } from '../lib/api-client';
 import { useRealtimeRefresh } from '../lib/use-realtime-refresh';
 
 const navItems = [
   { href: '/', label: 'Synthèse', icon: LayoutDashboard },
   { href: '/alerts', label: 'Alertes', icon: Bell },
+  { href: '/liste-jaune', label: 'Liste Jaune', icon: List },
+  { href: '/archives', label: 'Archives', icon: Archive },
+  { href: '/actualites', label: 'Actualités', icon: Newspaper },
   { href: '/settings', label: 'Paramètres', icon: Settings },
   { href: '/users', label: 'Utilisateurs', icon: Users },
 ];
@@ -23,18 +26,23 @@ export function DashboardShell({
   children: React.ReactNode;
 }) {
   const [user, setUser] = useState<{ email: string; fullName: string; role: 'admin' | 'agent' } | null>(null);
+  const [authorized, setAuthorized] = useState(false);
   async function refreshUser() {
     try {
       const response = await apiFetch('/api/auth/me');
       if (!response.ok) { window.location.assign('/login'); return; }
       const result = await response.json();
+      if (result.user.role !== 'admin') { window.location.assign('/wifi'); return; }
       setUser(result.user);
+      setAuthorized(true);
     } catch {
       window.location.assign('/login');
     }
   }
   useEffect(() => { void refreshUser(); }, []);
   useRealtimeRefresh(refreshUser, 30000);
+
+  if (!authorized) return <main className="flex min-h-screen items-center justify-center text-slate-500">Vérification de l’accès…</main>;
 
   async function logout() {
     try { await apiFetch('/api/auth/logout', { method: 'POST' }); }
@@ -101,7 +109,7 @@ export function DashboardShell({
                 <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
               </div>
               <div className="flex items-center gap-3">
-                <a href={`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/export?format=csv&period=week`} className="rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700">
+                <a href={`${API_URL}/api/export?format=csv&period=week`} className="rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700">
                   Exporter CSV
                 </a>
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-100 text-brand-700">

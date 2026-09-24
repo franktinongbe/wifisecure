@@ -3,7 +3,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/db.js';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
 import { asyncHandler } from '../lib/async-handler.js';
 
 const router = Router();
@@ -105,14 +105,15 @@ router.post('/', requireAuth, requireRole('admin'), asyncHandler(async (req, res
   }
 }));
 
-router.patch('/:id/deactivate', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  if (req.user?.id === req.params.id) {
+router.patch('/:id/deactivate', requireAuth, requireRole('admin'), asyncHandler(async (req: AuthenticatedRequest, res) => {
+  const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  if (req.user?.id === userId) {
     return res.status(400).json({ message: 'Vous ne pouvez pas désactiver votre propre compte.' });
   }
 
   try {
     const user = await prisma.user.update({
-      where: { id: req.params.id },
+      where: { id: userId },
       data: { isActive: false },
       select: userSelect,
     });

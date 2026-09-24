@@ -53,7 +53,7 @@ router.post('/domains', requireAuth, requireRole('admin'), asyncHandler(async (r
 }));
 
 router.delete('/domains/:role/:domain', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  const domain = req.params.domain;
+  const domain = Array.isArray(req.params.domain) ? req.params.domain[0] : req.params.domain;
   const role = req.params.role === 'admin' ? 'admin' : req.params.role === 'agent' ? 'agent' : null;
   if (!role) return res.status(400).json({ message: 'Rôle invalide.' });
 

@@ -1,5 +1,6 @@
 import { prisma } from '../lib/db.js';
 import { evaluateAlerts } from '../lib/alertRules.js';
+import { sendWhatsAppIncidentAlert } from './whatsappService.js';
 
 export type SessionCreateInput = {
   identifiant_usager: string;
@@ -8,6 +9,9 @@ export type SessionCreateInput = {
   fin?: string | null;
   volume_octets: number;
   domaine_dns?: string | null;
+  adresse_ip?: string | null;
+  adresse_mac?: string | null;
+  navigateur?: string | null;
   role?: 'admin' | 'agent';
 };
 
@@ -39,6 +43,9 @@ export async function ingestSession(input: SessionCreateInput) {
       fin: input.fin ? new Date(input.fin) : null,
       volumeOctets: BigInt(Math.round(input.volume_octets)),
       domaineDns: input.domaine_dns ?? null,
+      adresseIp: input.adresse_ip ?? null,
+      adresseMac: input.adresse_mac ?? null,
+      navigateur: input.navigateur ?? null,
     },
   });
 
@@ -50,13 +57,17 @@ export async function ingestSession(input: SessionCreateInput) {
   });
 
   for (const alert of alerts) {
-    await prisma.alert.create({
+    const createdAlert = await prisma.alert.create({
       data: {
         sessionId: session.id,
         type: alert.alertType,
         message: alert.message,
         status: 'active',
       },
+      include: { session: true },
+    });
+    void sendWhatsAppIncidentAlert(createdAlert).catch(() => {
+      console.error('WhatsApp incident notification could not be sent.');
     });
   }
 

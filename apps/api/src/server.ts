@@ -10,9 +10,16 @@ import settingRoutes from './routes/settings.js';
 import userRoutes from './routes/users.js';
 import authRoutes from './routes/auth.js';
 import exportRoutes from './routes/export.js';
+import blockRoutes from './routes/blocks.js';
+import archiveRoutes from './routes/archives.js';
+import { startDailyArchiveScheduler } from './services/archiveService.js';
+import newsRoutes from './routes/news.js';
 
 const app = express();
 const PgSession = connectPgSimple(session);
+const isProduction = process.env.NODE_ENV === 'production';
+
+if (isProduction) app.set('trust proxy', 1);
 
 // Prisma returns BigInt for byte counters, which JSON.stringify cannot encode.
 app.set('json replacer', (_key: string, value: unknown) =>
@@ -35,7 +42,7 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: false,
+    secure: isProduction,
     sameSite: 'lax',
   },
 }));
@@ -48,9 +55,13 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/blocks', blockRoutes);
+app.use('/api/archives', archiveRoutes);
+app.use('/api/news', newsRoutes);
 
 app.listen(env.port, () => {
   console.log(`API WiFiSecure listening on port ${env.port}`);
+  startDailyArchiveScheduler();
 });
 
 export default app;

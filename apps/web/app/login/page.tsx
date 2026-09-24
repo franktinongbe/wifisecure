@@ -26,11 +26,14 @@ export default function LoginPage() {
       });
 
       if (!res.ok) {
-        setError('Adresse e-mail ou mot de passe incorrect.');
+        setError(res.status === 401 || res.status === 400
+          ? 'Adresse e-mail ou mot de passe incorrect.'
+          : 'Le service de connexion est momentanément indisponible. Réessayez plus tard.');
         return;
       }
 
-      router.push('/');
+      const { user } = await res.json();
+      router.push(user.role === 'admin' ? '/' : '/actualites');
       router.refresh();
     } catch {
       setError('Impossible de se connecter au serveur. Réessayez.');
