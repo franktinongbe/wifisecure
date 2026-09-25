@@ -7,9 +7,9 @@ export const env = {
   sessionSecret: process.env.SESSION_SECRET ?? 'development-secret',
   databaseUrl: process.env.DATABASE_URL ?? 'postgresql://wifisecure:wifisecure@localhost:5432/wifisecure?schema=public',
   directUrl: process.env.DIRECT_URL ?? 'postgresql://wifisecure:wifisecure@localhost:5432/wifisecure?schema=public',
-  // Use the same reachable runtime endpoint as Prisma unless a dedicated
-  // session connection is configured (for example, a non-pooled Postgres URL).
-  sessionDatabaseUrl: process.env.SESSION_DATABASE_URL || process.env.DATABASE_URL || process.env.DIRECT_URL || 'postgresql://wifisecure:wifisecure@localhost:5432/wifisecure?schema=public',
+  // Express sessions require a persistent connection. Prefer the direct or
+  // session-mode pooler URL over DATABASE_URL, which may use transaction mode.
+  sessionDatabaseUrl: process.env.SESSION_DATABASE_URL || process.env.DIRECT_URL || process.env.DATABASE_URL || 'postgresql://wifisecure:wifisecure@localhost:5432/wifisecure?schema=public',
   frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:3000',
   wifiIngestToken: process.env.WIFI_INGEST_TOKEN ?? '',
   whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN ?? '',

@@ -51,7 +51,7 @@ docker compose up --build
 
 ### Configuration en production
 
-Configurez `DATABASE_URL`, `DIRECT_URL`, `SESSION_SECRET` et `NEXT_PUBLIC_API_URL` dans l'environnement de déploiement. `DATABASE_URL` doit être accessible depuis l'API ; les sessions l'utilisent aussi par défaut. Si votre hébergeur exige une connexion PostgreSQL distincte pour les sessions, définissez `SESSION_DATABASE_URL` avec une URL joignable par le serveur. `DIRECT_URL` reste utilisé par Prisma pour les opérations directes et les migrations.
+Configurez `DATABASE_URL`, `DIRECT_URL`, `SESSION_SECRET` et `NEXT_PUBLIC_API_URL` dans l'environnement de déploiement. `DATABASE_URL` peut utiliser le pooler Supabase en mode transaction (port 6543) pour Prisma. Les sessions utilisent `DIRECT_URL` par défaut ; avec Supabase, configurez-le en mode session (port 5432), compatible avec les connexions persistantes. Vous pouvez définir `SESSION_DATABASE_URL` si l'API a besoin d'une autre URL persistante pour les sessions.
 
 Avant le premier démarrage, appliquez les migrations (`npx prisma migrate deploy --schema prisma/schema.prisma`) et créez les comptes administrateur et agent dans la base de production. Le seed de démonstration local efface les données existantes : ne l'exécutez pas sur une base de production. Vérifiez ensuite `GET /health` et les logs API si une requête renvoie une erreur 500.
 
