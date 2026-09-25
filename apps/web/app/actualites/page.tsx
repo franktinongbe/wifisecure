@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { BookOpen, CalendarDays, Check, Download, Eye, File as FileIcon, FileEdit, LogOut, Newspaper, Plus, Send, Trash2, Upload, X } from 'lucide-react';
 import { DashboardShell } from '../../components/dashboard-shell';
 import { apiFetch } from '../../lib/api-client';
+import { NewsReader } from './news-reader';
 
 type NewsItem = {
   id: string;
@@ -162,6 +163,15 @@ function NewsWorkspace({ isAdmin, fullName, onLogout }: { isAdmin: boolean; full
     const link = document.createElement('a'); link.href = url; link.download = attachment.fileName; link.click();
     URL.revokeObjectURL(url);
   }
+
+  if (!isAdmin) return <main className="min-h-screen bg-slate-50 px-4 py-5 sm:px-6"><div className="mx-auto max-w-5xl">
+    <header className="mb-7 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-5">
+      <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><BookOpen className="h-5 w-5" /></div><div><p className="text-xs text-slate-500">CAEB · Fondation Vallet</p><p className="font-semibold text-slate-900">Actualités bibliothèque</p></div></div>
+      <button onClick={() => void onLogout()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><LogOut className="h-4 w-4" /><span>Déconnexion</span></button>
+    </header>
+    <NewsReader items={items} fullName={fullName} loading={loading} error={error} notice={notice} onDownload={(item, attachment) => void downloadAttachment(item.id, attachment)} />
+    <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-500">© {new Date().getFullYear()} WiFiSecure · Bibliothèque CAEB</footer>
+  </div></main>;
 
   const content = <div className="space-y-6">
     <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-800 px-6 py-8 text-white shadow-lg sm:px-9">

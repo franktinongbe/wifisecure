@@ -6,6 +6,25 @@ import { requireAuth, requireRole, type AuthenticatedRequest } from '../middlewa
 import { downloadNewsFile, MAX_NEWS_FILE_BYTES, newsImageContentType, removeNewsFile, sanitizeNewsFileName, uploadNewsFile } from '../services/newsAttachmentService.js';
 
 const router = Router();
+
+async function removeNewsAttachmentFromStorage(storagePath: string, res: express.Response) {
+  try {
+    await removeNewsFile(storagePath);
+    return true;
+  } catch (error) {
+    const code = error instanceof Error ? error.message : '';
+    if (code === 'NEWS_STORAGE_NOT_CONFIGURED') {
+      res.status(503).json({ message: 'La suppression des pièces jointes est indisponible : configurez SUPABASE_URL et SUPABASE_SECRET_KEY sur le service API.' });
+      return false;
+    }
+    if (code === 'NEWS_FILE_DELETE_FAILED') {
+      res.status(502).json({ message: 'Supabase Storage a refusé la suppression de la pièce jointe. Vérifiez SUPABASE_SECRET_KEY.' });
+      return false;
+    }
+    throw error;
+  }
+}
+
 const postSchema = z.object({
   title: z.string().trim().min(3).max(180),
   summary: z.string().trim().max(360).optional().nullable(),
@@ -109,7 +128,7 @@ router.delete('/:id/attachments/:attachmentId', requireAuth, requireRole('admin'
   const attachmentId = Array.isArray(req.params.attachmentId) ? req.params.attachmentId[0] : req.params.attachmentId;
   const attachment = await prisma.newsAttachment.findFirst({ where: { id: attachmentId, newsPostId } });
   if (!attachment) return res.status(404).json({ message: 'Fichier introuvable.' });
-  await removeNewsFile(attachment.storagePath);
+  if (!await removeNewsAttachmentFromStorage(attachment.storagePath, res)) return;
   await prisma.newsAttachment.delete({ where: { id: attachment.id } });
   return res.json({ message: 'Fichier supprimé.' });
 }));
@@ -136,7 +155,7 @@ router.get('/:id/attachments/:attachmentId/preview', requireAuth, asyncHandler(a
   return res.send(Buffer.from(await file.arrayBuffer()));
 }));
 
-router.get('/:id/attachments/:attachmentId/download', requireAuth, requireRole('admin'), asyncHandler(async (req: AuthenticatedRequest, res) => {
+router.get('/:id/attachments/:attachmentId/download', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res) => {
   const newsPostId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const attachmentId = Array.isArray(req.params.attachmentId) ? req.params.attachmentId[0] : req.params.attachmentId;
   const item = await prisma.newsPost.findUnique({
@@ -160,7 +179,7 @@ router.delete('/:id', requireAuth, requireRole('admin'), asyncHandler(async (req
   const item = await prisma.newsPost.findUnique({ where: { id }, include: { attachments: true } });
   if (!item) return res.status(404).json({ message: 'Actualité introuvable.' });
   for (const attachment of item.attachments) {
-    await removeNewsFile(attachment.storagePath);
+    if (!await removeNewsAttachmentFromStorage(attachment.storagePath, res)) return;
     await prisma.newsAttachment.delete({ where: { id: attachment.id } });
   }
   await prisma.newsPost.delete({ where: { id } });
