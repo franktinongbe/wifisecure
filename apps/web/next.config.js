@@ -8,10 +8,10 @@ const nextConfig = {
   },
   async rewrites() {
     const configuredApiOrigin = process.env.API_INTERNAL_URL?.trim();
-    if (process.env.NETLIFY && !configuredApiOrigin) {
-      throw new Error('API_INTERNAL_URL doit pointer vers le serveur Express pour un déploiement Netlify.');
-    }
-    const apiOrigin = (configuredApiOrigin || 'http://api:4000').replace(/\/$/, '');
+    const defaultApiOrigin = process.env.NETLIFY
+      ? 'https://wifisecure-1.onrender.com'
+      : 'http://api:4000';
+    const apiOrigin = (configuredApiOrigin || defaultApiOrigin).replace(/\/$/, '');
     return [{ source: '/api/:path*', destination: `${apiOrigin}/api/:path*` }];
   },
 }
