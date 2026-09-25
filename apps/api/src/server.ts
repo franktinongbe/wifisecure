@@ -33,7 +33,7 @@ app.use(cors({
 app.use(express.json());
 app.use(session({
   store: new PgSession({
-    conString: env.directUrl, // ou process.env.DIRECT_URL si pas encore dans env.ts
+    conString: env.sessionDatabaseUrl,
     tableName: 'user_sessions',
     createTableIfMissing: true,
   }),
@@ -58,6 +58,18 @@ app.use('/api/export', exportRoutes);
 app.use('/api/blocks', blockRoutes);
 app.use('/api/archives', archiveRoutes);
 app.use('/api/news', newsRoutes);
+
+// Keep database/session failures visible in server logs while returning a
+// stable JSON response to clients. Never include connection strings here.
+app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('API request failed', {
+    method: req.method,
+    path: req.path,
+    error: err instanceof Error ? err.message : String(err),
+  });
+  if (res.headersSent) return;
+  res.status(500).json({ message: 'Erreur interne du serveur.' });
+});
 
 app.listen(env.port, () => {
   console.log(`API WiFiSecure listening on port ${env.port}`);

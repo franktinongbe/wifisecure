@@ -11,6 +11,7 @@ services:
       PORT: 4000
       DATABASE_URL: ${DATABASE_URL}
       DIRECT_URL: ${DIRECT_URL}
+      SESSION_DATABASE_URL: ${SESSION_DATABASE_URL:-}
       SESSION_SECRET: ${SESSION_SECRET:-super-secret-session-key-change-me}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
     ports:

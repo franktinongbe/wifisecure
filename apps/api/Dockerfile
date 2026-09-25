@@ -1,5 +1,7 @@
 FROM node:20-alpine
 
+ENV NODE_ENV=production
+
 WORKDIR /app
 
 COPY package*.json ./
@@ -14,6 +16,7 @@ COPY apps/api ./
 COPY prisma ./../../prisma
 
 RUN npx prisma generate --schema ../../prisma/schema.prisma
+RUN npm run build
 
 EXPOSE 4000
-CMD ["npm", "run", "dev"]
+CMD ["npm", "start"]

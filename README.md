@@ -49,6 +49,12 @@ docker compose up --build
    - API : http://localhost:4000
    - PostgreSQL : localhost:5432
 
+### Configuration en production
+
+Configurez `DATABASE_URL`, `DIRECT_URL`, `SESSION_SECRET` et `NEXT_PUBLIC_API_URL` dans l'environnement de déploiement. `DATABASE_URL` doit être accessible depuis l'API ; les sessions l'utilisent aussi par défaut. Si votre hébergeur exige une connexion PostgreSQL distincte pour les sessions, définissez `SESSION_DATABASE_URL` avec une URL joignable par le serveur. `DIRECT_URL` reste utilisé par Prisma pour les opérations directes et les migrations.
+
+Avant le premier démarrage, appliquez les migrations (`npx prisma migrate deploy --schema prisma/schema.prisma`) et créez les comptes administrateur et agent dans la base de production. Le seed de démonstration local efface les données existantes : ne l'exécutez pas sur une base de production. Vérifiez ensuite `GET /health` et les logs API si une requête renvoie une erreur 500.
+
 ## Initialisation de la base locale
 
 Si vous n'utilisez pas Docker, vous pouvez lancer PostgreSQL localement, puis exécuter :
