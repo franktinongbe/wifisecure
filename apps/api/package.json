@@ -21,7 +21,7 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.1",
+    "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.5",
     "@types/express": "^5.0.0",
     "@types/express-session": "^1.18.1",
