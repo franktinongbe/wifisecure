@@ -4,6 +4,7 @@ import { seedUsers, seedBlockedDomains, seedSettings } from './seed-data.js';
 const prisma = new PrismaClient();
 
 async function main() {
+  const organization = await prisma.organization.upsert({ where: { slug: 'legacy' }, update: {}, create: { id: '00000000-0000-4000-8000-000000000001', slug: 'legacy', name: 'WiFiSecure' } });
   console.log('🌱 Début du seeding de la base de données...');
 
   // 1. Nettoyage de la base de données
@@ -17,7 +18,7 @@ async function main() {
   // 2. Insérer les utilisateurs
   console.log('Création des utilisateurs...');
   const users = await Promise.all(
-    seedUsers.map((user) => prisma.user.create({ data: user }))
+    seedUsers.map((user) => prisma.user.create({ data: { ...user, organizationId: organization.id } }))
   );
 
   const adminUser = users.find((u) => u.role === Role.admin)!;
@@ -26,15 +27,15 @@ async function main() {
   console.log('Création des domaines bloqués...');
   await Promise.all(
     seedBlockedDomains.flatMap((domain) => [
-      prisma.blockedDomain.create({ data: { ...domain, role: Role.agent } }),
-      prisma.blockedDomain.create({ data: { ...domain, role: Role.admin } }),
+      prisma.blockedDomain.create({ data: { ...domain, organizationId: organization.id, role: Role.agent } }),
+      prisma.blockedDomain.create({ data: { ...domain, organizationId: organization.id, role: Role.admin } }),
     ])
   );
 
   // 4. Insérer les paramètres système
   console.log('Création des paramètres...');
   await Promise.all(
-    seedSettings.map((setting) => prisma.setting.create({ data: setting }))
+    seedSettings.map((setting) => prisma.setting.create({ data: { ...setting, organizationId: organization.id } }))
   );
 
   // 5. Insérer des sessions de démonstration et leurs alertes
@@ -43,6 +44,7 @@ async function main() {
   // Session 1 : Domaine bloqué déclenché
   const session1 = await prisma.session.create({
     data: {
+      organizationId: organization.id,
       identifiantUsager: 'U-011',
       appareil: 'PC-POSTE-04',
       debut: new Date(Date.now() - 30 * 60 * 1000), // Il y a 30 minutes
@@ -64,6 +66,7 @@ async function main() {
   // Session 2 : Volume élevé déclenché
   const session2 = await prisma.session.create({
     data: {
+      organizationId: organization.id,
       identifiantUsager: 'U-003',
       appareil: 'SMARTPHONE-WIFI',
       debut: new Date(Date.now() - 60 * 60 * 1000), // Il y a 1 heure
@@ -85,6 +88,7 @@ async function main() {
   // Session 3 : Alerte déjà résolue
   const session3 = await prisma.session.create({
     data: {
+      organizationId: organization.id,
       identifiantUsager: 'U-018',
       appareil: 'TABLETTE-02',
       debut: new Date(Date.now() - 120 * 60 * 1000),
@@ -110,6 +114,7 @@ async function main() {
   console.log('Création du journal d\'audit...');
   await prisma.auditLog.create({
     data: {
+      organizationId: organization.id,
       actorId: adminUser.id,
       action: 'RESOLVE_ALERT',
       details: `Alerte résolue par ${adminUser.fullName} pour la session ${session3.id}`,

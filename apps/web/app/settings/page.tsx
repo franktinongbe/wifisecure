@@ -6,6 +6,8 @@ import { apiFetch } from '../../lib/api-client';
 import { useRealtimeRefresh } from '../../lib/use-realtime-refresh';
 
 const THRESHOLD_KEY = 'session_volume_alert_threshold_bytes';
+type Organization = { name: string; label: string; contactEmail: string; phone: string; address: string; logoUrl: string; primaryColor: string };
+const defaultOrganization: Organization = { name: 'Ma structure', label: 'Portail de connexion Wi-Fi', contactEmail: '', phone: '', address: '', logoUrl: '', primaryColor: '#2148a6' };
 
 function bytesToGo(bytes: number) {
   return (bytes / 1024 ** 3).toFixed(1);
@@ -20,19 +22,24 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [thresholdDirty, setThresholdDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [organization, setOrganization] = useState<Organization>(defaultOrganization);
+  const [organizationSaving, setOrganizationSaving] = useState(false);
+  const [organizationMessage, setOrganizationMessage] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
-        const [settingsRes, domainsRes] = await Promise.all([
+        const [settingsRes, domainsRes, organizationRes] = await Promise.all([
           apiFetch('/api/settings'),
           apiFetch(`/api/settings/domains?role=${domainRole}`),
+          apiFetch('/api/settings/organization'),
         ]);
 
-        if (!settingsRes.ok || !domainsRes.ok) throw new Error('load-failed');
+        if (!settingsRes.ok || !domainsRes.ok || !organizationRes.ok) throw new Error('load-failed');
 
         const settings: { key: string; value: string }[] = await settingsRes.json();
         const domainList: { domain: string }[] = await domainsRes.json();
+        setOrganization({ ...defaultOrganization, ...await organizationRes.json() });
 
         const threshold = settings.find((s) => s.key === THRESHOLD_KEY);
         setThresholdBytes(threshold ? Number(threshold.value) : 2 * 1024 ** 3);
@@ -66,6 +73,20 @@ export default function SettingsPage() {
     }
   }
   useRealtimeRefresh(refreshSettings, 15000);
+
+  async function saveOrganization(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setOrganizationSaving(true);
+    setOrganizationMessage(null);
+    try {
+      const response = await apiFetch('/api/settings/organization', { method: 'PUT', body: JSON.stringify(organization) });
+      if (!response.ok) throw new Error('save-failed');
+      setOrganization({ ...defaultOrganization, ...await response.json() });
+      setOrganizationMessage('Les informations de la structure sont enregistrées et visibles dans les espaces admin et agent.');
+    } catch {
+      setOrganizationMessage("Impossible d'enregistrer les informations de la structure.");
+    } finally { setOrganizationSaving(false); }
+  }
 
   async function handleSaveThreshold(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -125,6 +146,21 @@ export default function SettingsPage() {
   return (
     <DashboardShell title="Paramètres" subtitle="Gestion du seuil de volume et des domaines bloqués pour les alertes du réseau.">
       {error && <div className="mb-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+      <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h3 className="text-lg font-semibold">Identité de la structure</h3>
+        <p className="mt-2 text-sm text-slate-500">Ces informations personnalisent l’en-tête des espaces administrateur et agent ainsi que le portail Wi-Fi.</p>
+        <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={saveOrganization}>
+          <label className="text-sm font-medium text-slate-700">Nom de la structure<input required minLength={2} maxLength={100} value={organization.name} onChange={(e) => setOrganization({ ...organization, name: e.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5" /></label>
+          <label className="text-sm font-medium text-slate-700">Intitulé affiché<input maxLength={120} value={organization.label} onChange={(e) => setOrganization({ ...organization, label: e.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5" /></label>
+          <label className="text-sm font-medium text-slate-700">E-mail de contact<input type="email" value={organization.contactEmail} onChange={(e) => setOrganization({ ...organization, contactEmail: e.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5" /></label>
+          <label className="text-sm font-medium text-slate-700">Téléphone<input maxLength={40} value={organization.phone} onChange={(e) => setOrganization({ ...organization, phone: e.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5" /></label>
+          <label className="text-sm font-medium text-slate-700">Adresse<input maxLength={200} value={organization.address} onChange={(e) => setOrganization({ ...organization, address: e.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5" /></label>
+          <label className="text-sm font-medium text-slate-700">URL du logo<input type="url" value={organization.logoUrl} onChange={(e) => setOrganization({ ...organization, logoUrl: e.target.value })} placeholder="https://..." className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5" /></label>
+          <label className="flex items-center gap-3 text-sm font-medium text-slate-700">Couleur principale<input type="color" value={organization.primaryColor} onChange={(e) => setOrganization({ ...organization, primaryColor: e.target.value })} className="h-10 w-16 rounded-lg border border-slate-200 p-1" /><span>{organization.primaryColor}</span></label>
+          <div className="flex items-center gap-4 sm:col-span-2">{organization.logoUrl && <img src={organization.logoUrl} alt="Aperçu du logo" className="h-12 max-w-32 object-contain" />}<button disabled={organizationSaving} className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60">{organizationSaving ? 'Enregistrement…' : 'Enregistrer l’identité'}</button>{organizationMessage && <p role="status" className="text-sm text-slate-600">{organizationMessage}</p>}</div>
+        </form>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">

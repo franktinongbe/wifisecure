@@ -4,6 +4,8 @@ import { prisma } from '../lib/db.js';
 export type AuthenticatedRequest = Request & {
   user?: {
     id: string;
+    organizationId: string;
+    organizationSlug: string;
     email: string;
     role: 'admin' | 'agent';
   };
@@ -19,7 +21,7 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
 
     const user = await prisma.user.findUnique({
       where: { id: sessionUser.id },
-      select: { id: true, email: true, role: true, isActive: true },
+      select: { id: true, organizationId: true, email: true, role: true, isActive: true, organization: { select: { slug: true } } },
     });
 
     if (!user || !user.isActive) {
@@ -28,6 +30,8 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
 
     req.user = {
       id: user.id,
+      organizationId: user.organizationId,
+      organizationSlug: user.organization.slug,
       email: user.email,
       role: user.role,
     };

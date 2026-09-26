@@ -1,17 +1,19 @@
 import { prisma } from '../lib/db.js';
 
-export async function getLiveStats() {
+export async function getLiveStats(organizationId: string) {
   const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
   const [activeSessions, recentVolume, averageDuration] = await Promise.all([
     prisma.session.count({
       where: {
+        organizationId,
         fin: null,
         debut: { lte: new Date() },
       },
     }),
     prisma.session.aggregate({
       where: {
+        organizationId,
         debut: { gte: fiveMinutesAgo },
       },
       _sum: { volumeOctets: true },
@@ -19,7 +21,7 @@ export async function getLiveStats() {
     prisma.$queryRaw<Array<{ averageSessionMinutes: number | null }>>`
       SELECT AVG(EXTRACT(EPOCH FROM ("fin" - "debut")) / 60.0)::double precision AS "averageSessionMinutes"
       FROM "sessions"
-      WHERE "fin" IS NOT NULL
+      WHERE "fin" IS NOT NULL AND "organizationId" = ${organizationId}
     `,
   ]);
 
@@ -33,7 +35,7 @@ export async function getLiveStats() {
   };
 }
 
-export async function getSummary(period: 'day' | 'week' | 'month') {
+export async function getSummary(period: 'day' | 'week' | 'month', organizationId: string) {
   const now = new Date();
   const start = new Date(now);
 
@@ -43,18 +45,18 @@ export async function getSummary(period: 'day' | 'week' | 'month') {
 
   const [sessionTotals, uniqueUsers, averageDuration] = await Promise.all([
     prisma.session.aggregate({
-      where: { debut: { gte: start } },
+      where: { organizationId, debut: { gte: start } },
       _sum: { volumeOctets: true },
       _count: { _all: true },
     }),
     prisma.session.groupBy({
       by: ['identifiantUsager'],
-      where: { debut: { gte: start } },
+      where: { organizationId, debut: { gte: start } },
     }),
     prisma.$queryRaw<Array<{ averageSessionMinutes: number | null }>>`
       SELECT AVG(EXTRACT(EPOCH FROM ("fin" - "debut")) / 60.0)::double precision AS "averageSessionMinutes"
       FROM "sessions"
-      WHERE "debut" >= ${start} AND "fin" IS NOT NULL
+      WHERE "debut" >= ${start} AND "fin" IS NOT NULL AND "organizationId" = ${organizationId}
     `,
   ]);
 

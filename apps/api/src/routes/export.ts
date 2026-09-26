@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { prisma } from '../lib/db.js';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = Router();
 
-router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
+router.get('/', requireAuth, requireRole('admin'), async (req: AuthenticatedRequest, res) => {
   const period = req.query.period as 'day' | 'week' | 'month' | undefined;
   const now = new Date();
   const start = new Date(now);
@@ -15,7 +15,7 @@ router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
   else start.setDate(now.getDate() - 7);
 
   const sessions = await prisma.session.findMany({
-    where: { debut: { gte: start } },
+    where: { organizationId: req.user!.organizationId, debut: { gte: start } },
     orderBy: { debut: 'desc' },
   });
 

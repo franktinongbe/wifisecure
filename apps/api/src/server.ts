@@ -14,6 +14,7 @@ import blockRoutes from './routes/blocks.js';
 import archiveRoutes from './routes/archives.js';
 import { startDailyArchiveScheduler } from './services/archiveService.js';
 import newsRoutes from './routes/news.js';
+import organizationRoutes from './routes/organizations.js';
 
 const app = express();
 const PgSession = connectPgSimple(session);
@@ -49,6 +50,7 @@ app.use(session({
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 app.use('/api/auth', authRoutes);
+app.use('/api/organizations', organizationRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/alerts', alertRoutes);

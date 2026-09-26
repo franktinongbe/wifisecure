@@ -10,9 +10,9 @@ router.get('/integrations', requireAuth, requireRole('admin'), (_req, res) => {
   res.json({ whatsappConfigured: isWhatsAppConfigured(), unifiConfigured: isUniFiConfigured() });
 });
 
-router.get('/counts', requireAuth, requireRole('admin'), async (_req, res) => {
+router.get('/counts', requireAuth, requireRole('admin'), async (_req: AuthenticatedRequest, res) => {
   try {
-    const grouped = await AlertService.getAlertCounts();
+  const grouped = await AlertService.getAlertCounts(_req.user!.organizationId);
     return res.json({
       active: grouped.find((item) => item.status === 'active')?._count._all ?? 0,
       resolved: grouped.find((item) => item.status === 'resolved')?._count._all ?? 0,
@@ -24,9 +24,9 @@ router.get('/counts', requireAuth, requireRole('admin'), async (_req, res) => {
 });
 
 // GET /api/alerts - Liste des alertes
-router.get('/', requireAuth, requireRole('admin'), async (_req, res) => {
+router.get('/', requireAuth, requireRole('admin'), async (_req: AuthenticatedRequest, res) => {
   try {
-    const alerts = await AlertService.getAllAlerts();
+    const alerts = await AlertService.getAllAlerts(_req.user!.organizationId);
     return res.json(alerts);
   } catch (error) {
     console.error('Erreur lors de la récupération des alertes:', error);
@@ -40,7 +40,7 @@ router.patch('/:id/resolve', requireAuth, requireRole('admin'), async (req: Auth
     const alertId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const resolvedBy = req.user?.email ?? 'system';
 
-    const updatedAlert = await AlertService.resolveAlert(alertId, resolvedBy);
+    const updatedAlert = await AlertService.resolveAlert(alertId, resolvedBy, req.user!.organizationId);
 
     return res.json({
       message: 'Alerte marquée comme traitée.',

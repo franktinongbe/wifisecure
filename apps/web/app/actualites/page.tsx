@@ -53,6 +53,7 @@ function NewsImagePreview({ postId, attachment }: { postId: string; attachment: 
 }
 
 function NewsWorkspace({ isAdmin, fullName, onLogout }: { isAdmin: boolean; fullName: string; onLogout: () => Promise<void> }) {
+  const [organization, setOrganization] = useState({ name: 'WiFiSecure', label: 'Actualités', contactEmail: '', phone: '', address: '', logoUrl: '', primaryColor: '#2148a6' });
   const [items, setItems] = useState<NewsItem[]>([]);
   const [form, setForm] = useState<NewsForm>(blankForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -63,6 +64,8 @@ function NewsWorkspace({ isAdmin, fullName, onLogout }: { isAdmin: boolean; full
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+
+  useEffect(() => { apiFetch('/api/settings/organization').then(async (response) => { if (response.ok) { const organizationData = await response.json(); setOrganization((current) => ({ ...current, ...organizationData })); } }).catch(() => undefined); }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -225,7 +228,7 @@ function NewsWorkspace({ isAdmin, fullName, onLogout }: { isAdmin: boolean; full
   </div>;
 
   if (isAdmin) return <DashboardShell title="Actualités" subtitle="Publiez les informations de la bibliothèque pour les usagers.">{content}</DashboardShell>;
-  return <main className="min-h-screen bg-slate-50 px-4 py-5 sm:px-6"><div className="mx-auto max-w-5xl"><header className="mb-6 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-5"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><BookOpen className="h-5 w-5" /></div><div><p className="text-xs text-slate-500">CAEB · Fondation Vallet</p><p className="font-semibold text-slate-900">Actualités bibliothèque</p></div></div><button onClick={() => void onLogout()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"><LogOut className="h-4 w-4" /><span className="hidden sm:inline">Déconnexion</span></button></header>{content}<footer className="py-8 text-center text-xs text-slate-500">© {new Date().getFullYear()} WiFiSecure · Bibliothèque CAEB</footer></div></main>;
+  return <main className="min-h-screen bg-slate-50 px-4 py-5 sm:px-6"><div className="mx-auto max-w-5xl"><header className="mb-6 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-5"><div className="flex items-center gap-3">{organization.logoUrl ? <img src={organization.logoUrl} alt="" className="h-10 w-10 rounded-xl object-contain" /> : <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700" style={{ color: organization.primaryColor }}><BookOpen className="h-5 w-5" /></div>}<div><p className="text-xs text-slate-500">{organization.name}</p><p className="font-semibold text-slate-900" style={{ color: organization.primaryColor }}>{organization.label}</p></div></div><button onClick={() => void onLogout()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"><LogOut className="h-4 w-4" /><span className="hidden sm:inline">Déconnexion</span></button></header>{content}<footer className="py-8 text-center text-xs text-slate-500">© {new Date().getFullYear()} {organization.name}{organization.address ? ` · ${organization.address}` : ''}{organization.contactEmail ? ` · ${organization.contactEmail}` : ''}{organization.phone ? ` · ${organization.phone}` : ''}</footer></div></main>;
 }
 
 export default function ActualitesPage() {

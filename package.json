@@ -11,7 +11,9 @@
     "test": "npm run test --workspace apps/api",
     "db:generate": "prisma generate --schema prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema prisma/schema.prisma --name init",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "db:organization:create": "tsx prisma/create-organization.ts",
+    "db:migrate:deploy": "prisma migrate deploy --schema prisma/schema.prisma"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -1,5 +1,5 @@
 import { Router, type Response } from 'express';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
 import { downloadArchive, isArchiveConfigured, listArchives } from '../services/archiveService.js';
 
 const router = Router();
@@ -17,22 +17,22 @@ function sendArchiveError(res: Response, error: unknown) {
   return res.status(result.status).json({ message: result.message });
 }
 
-router.get('/', requireAuth, requireRole('admin'), async (_req, res) => {
+router.get('/', requireAuth, requireRole('admin'), async (_req: AuthenticatedRequest, res) => {
   if (!isArchiveConfigured()) return res.status(503).json({ message: 'Le stockage des archives n’est pas configuré.' });
   try {
-    return res.json({ configured: true, bucket: 'connection-archives', items: await listArchives() });
+    return res.json({ configured: true, bucket: 'connection-archives', items: await listArchives(_req.user!.organizationSlug) });
   } catch (error) {
     return sendArchiveError(res, error);
   }
 });
 
-router.get('/:date/download', requireAuth, requireRole('admin'), async (req, res) => {
+router.get('/:date/download', requireAuth, requireRole('admin'), async (req: AuthenticatedRequest, res) => {
   const date = Array.isArray(req.params.date) ? req.params.date[0] : req.params.date;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
     return res.status(400).json({ message: 'Date d’archive invalide.' });
   }
   try {
-    const archive = await downloadArchive(date);
+    const archive = await downloadArchive(date, req.user!.organizationSlug);
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${date}.json"`);
     return res.send(Buffer.from(await archive.arrayBuffer()));

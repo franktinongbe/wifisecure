@@ -1,18 +1,20 @@
 import { Router } from 'express';
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { listSessions, ingestSession } from '../services/sessionService.js';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
+import { prisma } from '../lib/db.js';
 import { env } from '../config/env.js';
 
 const router = Router();
 
-router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
+router.get('/', requireAuth, requireRole('admin'), async (req: any, res) => {
   const query = req.query;
   const page = Number(query.page ?? 1);
   const pageSize = Number(query.pageSize ?? 20);
 
   const result = await listSessions({
+    organizationId: req.user.organizationId,
     page,
     pageSize,
     dateFrom: typeof query.dateFrom === 'string' ? query.dateFrom : undefined,
@@ -39,21 +41,19 @@ const ingestSchema = z.object({
 
 router.post('/ingest', async (req, res) => {
   const providedToken = req.header('x-wifi-ingest-token') ?? '';
-  const expected = Buffer.from(env.wifiIngestToken);
-  const provided = Buffer.from(providedToken);
-  if (!expected.length) return res.status(503).json({ message: 'La collecte réseau n’est pas configurée.' });
-  if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
-    return res.status(401).json({ message: 'Clé de collecte invalide.' });
-  }
+  const organizationSlug = req.header('x-wifi-organization') ?? 'legacy';
+  const organization = await prisma.organization.findUnique({ where: { slug: organizationSlug }, select: { id: true, ingestTokenHash: true } });
+  if (!organization) return res.status(404).json({ message: 'Structure inconnue.' });
+  const expected = organizationSlug === 'legacy' ? Buffer.from(env.wifiIngestToken) : Buffer.from(organization.ingestTokenHash, 'hex');
+  const provided = organizationSlug === 'legacy' ? Buffer.from(providedToken) : createHash('sha256').update(providedToken).digest();
+  if (!expected.length) return res.status(503).json({ message: 'La collecte r?seau n?est pas configur?e.' });
+  if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) return res.status(401).json({ message: 'Cl? de collecte invalide.' });
 
   const parsed = ingestSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: 'Payload invalide.', errors: parsed.error.flatten() });
 
-  if (!parsed.success) {
-    return res.status(400).json({ message: 'Payload invalide.', errors: parsed.error.flatten() });
-  }
-
-  const session = await ingestSession({ ...parsed.data, role: 'agent' });
-  return res.status(201).json({ message: 'Session enregistrée.', session });
+  const session = await ingestSession({ ...parsed.data, organizationId: organization.id, role: 'agent' });
+  return res.status(201).json({ message: 'Session enregistr?e.', session });
 });
 
 export default router;

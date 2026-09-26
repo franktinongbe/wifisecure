@@ -35,7 +35,7 @@ const postSchema = z.object({
 router.get('/', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res) => {
   const isAdmin = req.user?.role === 'admin';
   const items = await prisma.newsPost.findMany({
-    where: isAdmin ? {} : { published: true },
+    where: { organizationId: req.user!.organizationId, ...(isAdmin ? {} : { published: true }) },
     orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
     include: { author: { select: { fullName: true } }, attachments: { orderBy: { createdAt: 'asc' } } },
   });
@@ -48,6 +48,7 @@ router.post('/', requireAuth, requireRole('admin'), asyncHandler(async (req: Aut
   const published = parsed.data.published ?? false;
   const item = await prisma.newsPost.create({
     data: {
+      organizationId: req.user!.organizationId,
       title: parsed.data.title,
       summary: parsed.data.summary?.trim() || null,
       content: parsed.data.content,
@@ -60,11 +61,11 @@ router.post('/', requireAuth, requireRole('admin'), asyncHandler(async (req: Aut
   return res.status(201).json(item);
 }));
 
-router.put('/:id', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+router.put('/:id', requireAuth, requireRole('admin'), asyncHandler(async (req: AuthenticatedRequest, res) => {
   const parsed = postSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: 'Vérifiez le titre, le résumé et le contenu.', errors: parsed.error.flatten() });
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const existing = await prisma.newsPost.findUnique({ where: { id }, select: { publishedAt: true } });
+  const existing = await prisma.newsPost.findFirst({ where: { id, organizationId: req.user!.organizationId }, select: { publishedAt: true } });
   if (!existing) return res.status(404).json({ message: 'Actualité introuvable.' });
   const published = parsed.data.published ?? false;
   const item = await prisma.newsPost.update({
@@ -90,7 +91,7 @@ router.post('/:id/attachments', requireAuth, requireRole('admin'), express.raw({
   if (!Buffer.isBuffer(req.body)) return res.status(400).json({ message: 'Fichier manquant.' });
   if (req.body.length > MAX_NEWS_FILE_BYTES) return res.status(413).json({ message: 'Chaque fichier doit peser 50 Mo maximum.' });
 
-  const newsPost = await prisma.newsPost.findUnique({ where: { id: newsPostId }, select: { id: true } });
+  const newsPost = await prisma.newsPost.findFirst({ where: { id: newsPostId, organizationId: req.user!.organizationId }, select: { id: true } });
   if (!newsPost) return res.status(404).json({ message: 'Actualité introuvable.' });
   const fileName = sanitizeNewsFileName(req.header('x-file-name'));
   let storagePath: string;
@@ -123,10 +124,10 @@ router.post('/:id/attachments', requireAuth, requireRole('admin'), express.raw({
   }
 }));
 
-router.delete('/:id/attachments/:attachmentId', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+router.delete('/:id/attachments/:attachmentId', requireAuth, requireRole('admin'), asyncHandler(async (req: AuthenticatedRequest, res) => {
   const newsPostId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const attachmentId = Array.isArray(req.params.attachmentId) ? req.params.attachmentId[0] : req.params.attachmentId;
-  const attachment = await prisma.newsAttachment.findFirst({ where: { id: attachmentId, newsPostId } });
+  const attachment = await prisma.newsAttachment.findFirst({ where: { id: attachmentId, newsPostId, newsPost: { organizationId: req.user!.organizationId } } });
   if (!attachment) return res.status(404).json({ message: 'Fichier introuvable.' });
   if (!await removeNewsAttachmentFromStorage(attachment.storagePath, res)) return;
   await prisma.newsAttachment.delete({ where: { id: attachment.id } });
@@ -137,7 +138,7 @@ router.get('/:id/attachments/:attachmentId/preview', requireAuth, asyncHandler(a
   const newsPostId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const attachmentId = Array.isArray(req.params.attachmentId) ? req.params.attachmentId[0] : req.params.attachmentId;
   const item = await prisma.newsPost.findUnique({
-    where: { id: newsPostId },
+    where: { id: newsPostId, organizationId: req.user!.organizationId },
     include: { attachments: { where: { id: attachmentId } } },
   });
   const attachment = item?.attachments[0];
@@ -159,7 +160,7 @@ router.get('/:id/attachments/:attachmentId/download', requireAuth, asyncHandler(
   const newsPostId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const attachmentId = Array.isArray(req.params.attachmentId) ? req.params.attachmentId[0] : req.params.attachmentId;
   const item = await prisma.newsPost.findUnique({
-    where: { id: newsPostId },
+    where: { id: newsPostId, organizationId: req.user!.organizationId },
     include: { attachments: { where: { id: attachmentId } } },
   });
   const attachment = item?.attachments[0];
@@ -174,9 +175,9 @@ router.get('/:id/attachments/:attachmentId/download', requireAuth, asyncHandler(
   return res.send(Buffer.from(await file.arrayBuffer()));
 }));
 
-router.delete('/:id', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+router.delete('/:id', requireAuth, requireRole('admin'), asyncHandler(async (req: AuthenticatedRequest, res) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const item = await prisma.newsPost.findUnique({ where: { id }, include: { attachments: true } });
+  const item = await prisma.newsPost.findFirst({ where: { id, organizationId: req.user!.organizationId }, include: { attachments: true } });
   if (!item) return res.status(404).json({ message: 'Actualité introuvable.' });
   for (const attachment of item.attachments) {
     if (!await removeNewsAttachmentFromStorage(attachment.storagePath, res)) return;

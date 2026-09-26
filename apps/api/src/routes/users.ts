@@ -3,7 +3,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/db.js';
-import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 import { asyncHandler } from '../lib/async-handler.js';
 
 const router = Router();
@@ -17,8 +17,9 @@ const userSelect = {
   createdAt: true,
 } as const;
 
-router.get('/', requireAuth, requireRole('admin'), asyncHandler(async (_req, res) => {
+router.get('/', requireAuth, requireRole('admin'), asyncHandler(async (req: any, res) => {
   const users = await prisma.user.findMany({
+    where: { organizationId: req.user.organizationId },
     orderBy: { createdAt: 'desc' },
     select: userSelect,
   });
@@ -40,14 +41,14 @@ const sharedAccountSchema = z.object({
 });
 
 // A single shared login for Wi-Fi users. Admin accounts remain individual.
-router.put('/shared-account', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+router.put('/shared-account', requireAuth, requireRole('admin'), asyncHandler(async (req: any, res) => {
   const parsed = sharedAccountSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ message: 'Données invalides.', errors: parsed.error.flatten() });
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
-  const existing = await prisma.user.findFirst({ where: { role: 'agent', isActive: true }, select: { id: true } });
+  const existing = await prisma.user.findFirst({ where: { organizationId: req.user.organizationId, role: 'agent', isActive: true }, select: { id: true } });
   try {
     const account = existing
       ? await prisma.user.update({
@@ -57,6 +58,7 @@ router.put('/shared-account', requireAuth, requireRole('admin'), asyncHandler(as
         })
       : await prisma.user.create({
           data: {
+            organizationId: req.user.organizationId,
             email: parsed.data.email,
             fullName: parsed.data.fullName,
             passwordHash,
@@ -73,7 +75,7 @@ router.put('/shared-account', requireAuth, requireRole('admin'), asyncHandler(as
   }
 }));
 
-router.post('/', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+router.post('/', requireAuth, requireRole('admin'), asyncHandler(async (req: any, res) => {
   const parsed = createUserSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ message: 'Données invalides.', errors: parsed.error.flatten() });
@@ -88,6 +90,7 @@ router.post('/', requireAuth, requireRole('admin'), asyncHandler(async (req, res
   try {
     const user = await prisma.user.create({
       data: {
+        organizationId: req.user.organizationId,
         email: parsed.data.email,
         passwordHash,
         fullName: parsed.data.fullName,
@@ -105,15 +108,17 @@ router.post('/', requireAuth, requireRole('admin'), asyncHandler(async (req, res
   }
 }));
 
-router.patch('/:id/deactivate', requireAuth, requireRole('admin'), asyncHandler(async (req: AuthenticatedRequest, res) => {
+router.patch('/:id/deactivate', requireAuth, requireRole('admin'), asyncHandler(async (req: any, res) => {
   const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   if (req.user?.id === userId) {
     return res.status(400).json({ message: 'Vous ne pouvez pas désactiver votre propre compte.' });
   }
 
   try {
+    const existing = await prisma.user.findFirst({ where: { id: userId, organizationId: req.user!.organizationId }, select: { id: true } });
+    if (!existing) return res.status(404).json({ message: 'Utilisateur introuvable.' });
     const user = await prisma.user.update({
-      where: { id: userId },
+      where: { id: existing.id },
       data: { isActive: false },
       select: userSelect,
     });

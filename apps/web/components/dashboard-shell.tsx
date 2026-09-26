@@ -15,6 +15,8 @@ const navItems = [
   { href: '/settings', label: 'Paramètres', icon: Settings },
   { href: '/users', label: 'Utilisateurs', icon: Users },
 ];
+type Organization = { name: string; label: string; logoUrl: string; primaryColor: string; contactEmail: string; phone: string; address: string };
+const defaultOrganization: Organization = { name: 'WiFiSecure', label: 'Tableau de bord', logoUrl: '', primaryColor: '#2148a6', contactEmail: '', phone: '', address: '' };
 
 export function DashboardShell({
   title,
@@ -27,6 +29,7 @@ export function DashboardShell({
 }) {
   const [user, setUser] = useState<{ email: string; fullName: string; role: 'admin' | 'agent' } | null>(null);
   const [authorized, setAuthorized] = useState(false);
+  const [organization, setOrganization] = useState(defaultOrganization);
   async function refreshUser() {
     try {
       const response = await apiFetch('/api/auth/me');
@@ -34,6 +37,8 @@ export function DashboardShell({
       const result = await response.json();
       if (result.user.role !== 'admin') { window.location.assign('/wifi'); return; }
       setUser(result.user);
+      const orgResponse = await apiFetch('/api/settings/organization');
+      if (orgResponse.ok) setOrganization({ ...defaultOrganization, ...await orgResponse.json() });
       setAuthorized(true);
     } catch {
       window.location.assign('/login');
@@ -51,10 +56,10 @@ export function DashboardShell({
 
   const visibleNavItems = navItems.filter(({ href }) => user?.role === 'admin' || (href !== '/users' && href !== '/settings'));
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <div className="min-h-screen bg-slate-50 text-slate-900" style={{ ['--organization-primary' as string]: organization.primaryColor }}>
       <div className="mx-auto max-w-7xl px-4 py-4 lg:px-6">
         <nav aria-label="Navigation principale" className="mb-4 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm lg:hidden">
-          <Link href="/" className="font-semibold text-brand-700">WiFiSecure</Link>
+          <Link href="/" className="font-semibold text-brand-700">{organization.name}</Link>
           <div className="flex items-center gap-3 text-sm">
             {visibleNavItems.map(({ href, label }) => <Link key={href} href={href} className="text-slate-600 hover:text-brand-700">{label}</Link>)}
             <button onClick={logout} className="text-slate-600 hover:text-rose-700" aria-label="Déconnexion"><LogOut className="h-4 w-4" /></button>
@@ -64,12 +69,13 @@ export function DashboardShell({
       <div className="mx-auto flex max-w-7xl gap-6 px-4 pb-6 lg:px-6">
         <aside className="hidden w-72 shrink-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:block">
           <div className="flex items-center gap-3 border-b border-slate-200 pb-5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-100 text-brand-600">
-              <BookOpenText className="h-5 w-5" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-100 text-brand-600" style={{ color: organization.primaryColor }}>
+              {organization.logoUrl ? <img src={organization.logoUrl} alt="" className="h-8 w-8 object-contain" /> : <BookOpenText className="h-5 w-5" />}
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Bibliothèque</p>
-              <h1 className="text-xl font-semibold">WiFiSecure</h1>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">{organization.label}</p>
+              <h1 className="text-xl font-semibold" style={{ color: organization.primaryColor }}>{organization.name}</h1>
             </div>
           </div>
 

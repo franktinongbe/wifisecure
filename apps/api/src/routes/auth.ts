@@ -10,6 +10,7 @@ const router = Router();
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
+  organizationSlug: z.string().min(1).max(80).default('legacy'),
 });
 
 router.post('/login', asyncHandler(async (req, res) => {
@@ -18,7 +19,7 @@ router.post('/login', asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Identifiants invalides.', errors: parsed.error.flatten() });
   }
 
-  const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+  const user = await prisma.user.findFirst({ where: { email: parsed.data.email, organization: { slug: parsed.data.organizationSlug } } });
   if (!user || !user.isActive) {
     return res.status(401).json({ message: 'Identifiants incorrects.' });
   }
@@ -28,7 +29,7 @@ router.post('/login', asyncHandler(async (req, res) => {
     return res.status(401).json({ message: 'Identifiants incorrects.' });
   }
 
-  (req as any).session.user = { id: user.id, email: user.email, role: user.role };
+  (req as any).session.user = { id: user.id, email: user.email, role: user.role, organizationId: user.organizationId };
 
   return res.json({
     user: {
@@ -58,7 +59,7 @@ router.get('/me', asyncHandler(async (req, res) => {
 
   const user = await prisma.user.findUnique({
     where: { id: sessionUser.id },
-    select: { id: true, email: true, fullName: true, role: true },
+    select: { id: true, organizationId: true, email: true, fullName: true, role: true, organization: { select: { name: true, slug: true } } },
   });
 
   if (!user) {

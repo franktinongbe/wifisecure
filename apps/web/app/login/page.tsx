@@ -22,7 +22,7 @@ export default function LoginPage() {
       const res = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, organizationSlug: form.get('organizationSlug') }),
       });
 
       if (!res.ok) {
@@ -83,6 +83,8 @@ export default function LoginPage() {
               )}
 
               <div>
+                <label htmlFor="organizationSlug" className="mb-2 block text-sm font-medium text-slate-700">Code de la structure</label>
+                <input id="organizationSlug" name="organizationSlug" defaultValue="legacy" required autoComplete="organization" className="mb-5 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-brand-500 focus:bg-white" />
                 <label htmlFor="email" className="mb-2 block text-sm font-medium text-slate-700">
                   Adresse e-mail
                 </label>

@@ -9,6 +9,7 @@ export default function WifiPortalPage() {
   const [name, setName] = useState('');
   const [ready, setReady] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
+  const [organization, setOrganization] = useState({ name: 'WiFiSecure', label: 'Portail Wi-Fi', contactEmail: '', phone: '', address: '' });
 
   useEffect(() => {
     async function connect() {
@@ -16,6 +17,8 @@ export default function WifiPortalPage() {
         const response = await apiFetch('/api/auth/me');
         if (!response.ok) { router.replace('/login'); return; }
         const { user } = await response.json();
+        const organizationResponse = await apiFetch('/api/settings/organization');
+        if (organizationResponse.ok) { const organizationData = await organizationResponse.json(); setOrganization((current) => ({ ...current, ...organizationData })); }
         if (user.role === 'admin') { router.replace('/'); return; }
         setName(user.fullName);
 

@@ -1,9 +1,10 @@
 import { prisma } from '../lib/db.js';
 
 export class AlertService {
-  static async getAlertCounts() {
+  static async getAlertCounts(organizationId: string) {
     return prisma.alert.groupBy({
       by: ['status'],
+      where: { session: { organizationId } },
       _count: { _all: true },
     });
   }
@@ -11,9 +12,10 @@ export class AlertService {
   /**
    * Récupère la liste des alertes triées par date de création avec la session associée.
    */
-  static async getAllAlerts() {
+  static async getAllAlerts(organizationId: string) {
     return prisma.alert.findMany({
       orderBy: { createdAt: 'desc' },
+      where: { session: { organizationId } },
       include: {
         session: true,
       },
@@ -23,9 +25,9 @@ export class AlertService {
   /**
    * Marque une alerte comme traitée ('resolved').
    */
-  static async resolveAlert(alertId: string, resolvedBy: string) {
-    const alert = await prisma.alert.findUnique({
-      where: { id: alertId },
+  static async resolveAlert(alertId: string, resolvedBy: string, organizationId: string) {
+    const alert = await prisma.alert.findFirst({
+      where: { id: alertId, session: { organizationId } },
     });
 
     if (!alert) {

@@ -6,8 +6,8 @@ import { setUniFiClientBlocked, UniFiIntegrationError } from '../services/unifiS
 
 const router = Router();
 
-router.get('/', requireAuth, requireRole('admin'), async (_req, res) => {
-  const devices = await prisma.blockedDevice.findMany({ where: { active: true }, orderBy: { blockedAt: 'desc' } });
+router.get('/', requireAuth, requireRole('admin'), async (_req: AuthenticatedRequest, res) => {
+  const devices = await prisma.blockedDevice.findMany({ where: { organizationId: _req.user!.organizationId, active: true }, orderBy: { blockedAt: 'desc' } });
   return res.json(devices);
 });
 
@@ -15,12 +15,12 @@ router.post('/', requireAuth, requireRole('admin'), async (req: AuthenticatedReq
   const parsed = z.object({ alertId: z.string().uuid() }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: 'Alerte invalide.' });
 
-  const alert = await prisma.alert.findUnique({ where: { id: parsed.data.alertId }, include: { session: true } });
+  const alert = await prisma.alert.findFirst({ where: { id: parsed.data.alertId, session: { organizationId: req.user!.organizationId } }, include: { session: true } });
   if (!alert) return res.status(404).json({ message: 'Alerte introuvable.' });
   if (!alert.session.adresseMac) return res.status(409).json({ message: 'Adresse MAC absente. Configurez le collecteur pour transmettre cette information.' });
   if (alert.status !== 'active') return res.status(409).json({ message: 'Cette alerte est déjà traitée.' });
 
-  const existing = await prisma.blockedDevice.findUnique({ where: { adresseMac: alert.session.adresseMac } });
+  const existing = await prisma.blockedDevice.findFirst({ where: { organizationId: req.user!.organizationId, adresseMac: alert.session.adresseMac } });
   if (existing?.active) return res.status(409).json({ message: 'Cet appareil est déjà bloqué.' });
 
   try {
@@ -34,9 +34,9 @@ router.post('/', requireAuth, requireRole('admin'), async (req: AuthenticatedReq
   const blockedBy = req.user?.email ?? 'admin';
   const now = new Date();
   const device = await prisma.$transaction(async (tx) => {
-    const saved = await tx.blockedDevice.upsert({
-      where: { adresseMac: alert.session.adresseMac! },
-      update: {
+    const saved = existing ? await tx.blockedDevice.update({
+      where: { id: existing.id },
+      data: {
         adresseIp: alert.session.adresseIp,
         identifiantUsager: alert.session.identifiantUsager,
         appareil: alert.session.appareil,
@@ -49,7 +49,9 @@ router.post('/', requireAuth, requireRole('admin'), async (req: AuthenticatedReq
         unblockedAt: null,
         unblockedBy: null,
       },
-      create: {
+    }) : await tx.blockedDevice.create({
+      data: {
+        organizationId: req.user!.organizationId,
         adresseMac: alert.session.adresseMac!,
         adresseIp: alert.session.adresseIp,
         identifiantUsager: alert.session.identifiantUsager,
@@ -68,7 +70,7 @@ router.post('/', requireAuth, requireRole('admin'), async (req: AuthenticatedReq
 
 router.patch('/:id/unblock', requireAuth, requireRole('admin'), async (req: AuthenticatedRequest, res) => {
   const deviceId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const device = await prisma.blockedDevice.findUnique({ where: { id: deviceId } });
+  const device = await prisma.blockedDevice.findFirst({ where: { id: deviceId, organizationId: req.user!.organizationId } });
   if (!device || !device.active) return res.status(404).json({ message: 'Appareil bloqué introuvable.' });
 
   try {

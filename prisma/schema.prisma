@@ -28,7 +28,8 @@ enum AlertStatus {
 
 model User {
   id           String   @id @default(uuid())
-  email        String   @unique
+  organizationId String
+  email        String
   passwordHash String
   fullName     String
   role         Role     @default(agent)
@@ -36,12 +37,41 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   newsPosts    NewsPost[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@unique([organizationId, email])
+  @@index([email])
+  @@index([organizationId, role])
   @@map("users")
+}
+
+model Organization {
+  id           String   @id @default(uuid())
+  slug         String   @unique @db.VarChar(80)
+  name         String   @db.VarChar(100)
+  label        String   @default("Portail de connexion Wi-Fi") @db.VarChar(120)
+  contactEmail String   @default("")
+  phone        String   @default("")
+  address      String   @default("")
+  logoUrl      String   @default("")
+  primaryColor String   @default("#2148a6") @db.VarChar(7)
+  ingestTokenHash String @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  users        User[]
+  sessions     Session[]
+  newsPosts    NewsPost[]
+  blockedDevices BlockedDevice[]
+  blockedDomains BlockedDomain[]
+  settings     Setting[]
+  auditLogs    AuditLog[]
+
+  @@map("organizations")
 }
 
 model Session {
   id                String        @id @default(uuid())
+  organizationId    String
   identifiantUsager String
   appareil          String
   role              Role          @default(agent)
@@ -58,15 +88,17 @@ model Session {
 
   alerts Alert[]
   blocks BlockedDevice[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([role, debut])
-  @@index([debut])
-  @@index([fin, debut])
+  @@index([organizationId, role, debut])
+  @@index([organizationId, debut])
+  @@index([organizationId, fin, debut])
   @@map("sessions")
 }
 
 model NewsPost {
   id          String   @id @default(uuid())
+  organizationId String
   title       String   @db.VarChar(180)
   summary     String?  @db.VarChar(360)
   content     String   @db.Text
@@ -78,9 +110,10 @@ model NewsPost {
 
   author User? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
   attachments NewsAttachment[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([createdBy])
-  @@index([published, publishedAt])
+  @@index([organizationId, published, publishedAt])
   @@map("actualites_bibliotheque")
 }
 
@@ -101,6 +134,7 @@ model NewsAttachment {
 
 model BlockedDevice {
   id                String   @id @default(uuid())
+  organizationId    String
   adresseMac        String   @unique
   adresseIp         String?
   identifiantUsager String
@@ -115,30 +149,39 @@ model BlockedDevice {
   unblockedBy       String?
 
   session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([active, blockedAt])
+  @@unique([organizationId, adresseMac])
+  @@index([organizationId, active, blockedAt])
   @@index([sessionId])
   @@map("appareils_bloques")
 }
 
 model BlockedDomain {
   id        String   @id @default(uuid())
+  organizationId String
   domain    String
   role      Role     @default(agent)
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedBy String?
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([domain, role])
+  @@unique([organizationId, domain, role])
+  @@index([organizationId, role, active])
   @@map("domaines_bloques")
 }
 
 model Setting {
   id        String   @id @default(uuid())
+  organizationId String
   key       String   @unique
   value     String
   updatedAt DateTime @updatedAt
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@unique([organizationId, key])
+  @@index([organizationId])
   @@map("settings")
 }
 
@@ -159,10 +202,13 @@ model Alert {
 
 model AuditLog {
   id        String   @id @default(uuid())
+  organizationId String
   actorId   String?
   action    String
   details   String?
   createdAt DateTime @default(now())
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId, createdAt])
   @@map("audit_logs")
 }

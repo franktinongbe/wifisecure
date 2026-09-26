@@ -15,27 +15,28 @@ export type SessionCreateInput = {
   role?: 'admin' | 'agent';
 };
 
-export async function getThresholdBytes() {
-  const setting = await prisma.setting.findUnique({ where: { key: 'session_volume_alert_threshold_bytes' } });
+export async function getThresholdBytes(organizationId: string) {
+  const setting = await prisma.setting.findUnique({ where: { organizationId_key: { organizationId, key: 'session_volume_alert_threshold_bytes' } } });
   return Number(setting?.value ?? 2_147_483_648);
 }
 
-export async function getBlockedDomains(role: 'admin' | 'agent' = 'agent') {
+export async function getBlockedDomains(organizationId: string, role: 'admin' | 'agent' = 'agent') {
   const domains = await prisma.blockedDomain.findMany({
-    where: { active: true, role },
+    where: { organizationId, active: true, role },
     select: { domain: true },
   });
 
   return domains.map((entry) => entry.domain);
 }
 
-export async function ingestSession(input: SessionCreateInput) {
-  const threshold = await getThresholdBytes();
+export async function ingestSession(input: SessionCreateInput & { organizationId: string }) {
+  const threshold = await getThresholdBytes(input.organizationId);
   const role = input.role ?? 'agent';
-  const blockedDomains = await getBlockedDomains(role);
+  const blockedDomains = await getBlockedDomains(input.organizationId, role);
 
   const session = await prisma.session.create({
     data: {
+      organizationId: input.organizationId,
       identifiantUsager: input.identifiant_usager,
       appareil: input.appareil,
       role,
@@ -87,14 +88,16 @@ export async function listSessions({
   dateFrom,
   dateTo,
   status,
+  organizationId,
 }: {
   page?: number;
   pageSize?: number;
   dateFrom?: string;
   dateTo?: string;
   status?: 'normal' | 'needs_review';
+  organizationId: string;
 }) {
-  const where: any = {};
+  const where: any = { organizationId };
 
   if (dateFrom || dateTo) {
     where.debut = {};

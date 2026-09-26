@@ -42,12 +42,12 @@ export function isArchiveConfigured() {
   return storageConfigured();
 }
 
-export async function archiveDay(day: string) {
+export async function archiveDay(day: string, organizationId: string, organizationSlug: string) {
   if (!storageConfigured()) throw new Error('ARCHIVE_STORAGE_NOT_CONFIGURED');
 
   const { start, end } = beninDayBounds(day);
   const sessions = await prisma.session.findMany({
-    where: { debut: { gte: start, lt: end } },
+    where: { organizationId, debut: { gte: start, lt: end } },
     orderBy: { debut: 'asc' },
     include: { alerts: { orderBy: { createdAt: 'asc' } } },
   });
@@ -64,7 +64,7 @@ export async function archiveDay(day: string) {
     })),
   };
 
-  const response = await storageFetch(objectUrl('upload', `${day}.json`), {
+  const response = await storageFetch(objectUrl('upload', organizationSlug === 'legacy' ? `${day}.json` : `${organizationSlug}/${day}.json`), {
     method: 'POST',
     headers: storageHeaders({ 'Content-Type': 'application/json', 'x-upsert': 'true' }),
     body: JSON.stringify(archive),
@@ -76,12 +76,12 @@ export async function archiveDay(day: string) {
   return { day, sessionCount: archive.sessionCount, alertCount: archive.alertCount };
 }
 
-export async function listArchives() {
+export async function listArchives(organizationSlug: string) {
   if (!storageConfigured()) throw new Error('ARCHIVE_STORAGE_NOT_CONFIGURED');
   const response = await storageFetch(objectUrl('list'), {
     method: 'POST',
     headers: storageHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ prefix: '', limit: 1000, offset: 0, sortBy: { column: 'name', order: 'desc' } }),
+    body: JSON.stringify({ prefix: organizationSlug === 'legacy' ? '' : `${organizationSlug}/`, limit: 1000, offset: 0, sortBy: { column: 'name', order: 'desc' } }),
   });
   if (!response.ok) {
     console.error(`Archive listing failed (${response.status}).`);
@@ -89,18 +89,18 @@ export async function listArchives() {
   }
   const files = await response.json() as Array<{ name?: string; id?: string; updated_at?: string; created_at?: string; metadata?: { size?: number } }>;
   return files
-    .filter((file) => /^\d{4}-\d{2}-\d{2}\.json$/.test(file.name ?? ''))
+    .filter((file) => (organizationSlug === 'legacy' ? /^\d{4}-\d{2}-\d{2}\.json$/ : /^\d{4}-\d{2}-\d{2}\.json$/).test((file.name ?? '').replace(`${organizationSlug}/`, '')))
     .map((file) => ({
-      date: file.name!.slice(0, 10),
+      date: file.name!.replace(`${organizationSlug}/`, '').slice(0, 10),
       name: file.name!,
       updatedAt: file.updated_at ?? file.created_at ?? null,
       size: file.metadata?.size ?? null,
     }));
 }
 
-export async function downloadArchive(day: string) {
+export async function downloadArchive(day: string, organizationSlug: string) {
   if (!storageConfigured()) throw new Error('ARCHIVE_STORAGE_NOT_CONFIGURED');
-  const response = await storageFetch(objectUrl('download', `${day}.json`), {
+  const response = await storageFetch(objectUrl('download', organizationSlug === 'legacy' ? `${day}.json` : `${organizationSlug}/${day}.json`), {
     headers: storageHeaders(),
   });
   if (!response.ok) {
@@ -121,8 +121,12 @@ async function archivePreviousDay() {
   if (runningDay === previousDay) return;
   runningDay = previousDay;
   try {
-    await archiveDay(previousDay);
-    console.info(`Connection history archived for ${previousDay}.`);
+    const organizations = await prisma.organization.findMany({ select: { id: true, slug: true } });
+    for (const organization of organizations) {
+      try { await archiveDay(previousDay, organization.id, organization.slug); }
+      catch (error) { console.error(`Daily archive failed for ${organization.slug}/${previousDay}: ${error instanceof Error ? error.message : 'unknown error'}`); }
+    }
+    console.info(`Connection history archived for ${previousDay} across ${organizations.length} structure(s).`);
   } catch (error) {
     console.error(`Daily connection archive failed for ${previousDay}: ${error instanceof Error ? error.message : 'unknown error'}`);
   } finally {
