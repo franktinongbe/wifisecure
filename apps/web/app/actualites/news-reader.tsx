@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BookOpen, CalendarDays, Download, File as FileIcon, Newspaper, Search } from 'lucide-react';
+import { apiFetch } from '../../lib/api-client';
 
 type NewsAttachment = { id: string; fileName: string; contentType: string; sizeBytes: number };
 type NewsItem = {
@@ -20,6 +21,33 @@ function formatFileSize(size: number) {
   return size < 1024 * 1024
     ? `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(size / 1024)} Ko`
     : `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(size / 1024 / 1024)} Mo`;
+}
+
+function NewsImage({ item, attachment }: { item: NewsItem; attachment: NewsAttachment }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | null = null;
+    apiFetch(`/api/news/${item.id}/attachments/${attachment.id}/preview`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Preview unavailable');
+        objectUrl = URL.createObjectURL(await response.blob());
+        if (active) setUrl(objectUrl);
+        else URL.revokeObjectURL(objectUrl);
+      })
+      .catch(() => { if (active) setFailed(true); });
+    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [item.id, attachment.id]);
+
+  if (failed) return null;
+  return <div className="mb-4 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+    {url ? <img src={url} alt={attachment.fileName} className="max-h-[28rem] w-full object-contain" /> : <div role="status" aria-label="Chargement de l’image" className="h-48 animate-pulse bg-slate-100" />}
+  </div>;
+}
+
+function isImage(attachment: NewsAttachment) {
+  return attachment.contentType.startsWith('image/') || /\.(avif|bmp|gif|jpe?g|png|webp)$/i.test(attachment.fileName);
 }
 
 export function NewsReader({
@@ -98,6 +126,7 @@ export function NewsReader({
                 </summary>
                 <p className="mt-3 whitespace-pre-wrap border-l-2 border-blue-100 pl-4 text-sm leading-7 text-slate-700">{item.content}</p>
               </details>}
+              {item.attachments?.some(isImage) && <div className="mt-5 space-y-4">{item.attachments.filter(isImage).map((attachment) => <NewsImage key={attachment.id} item={item} attachment={attachment} />)}</div>}
               {item.attachments?.length > 0 && <div className="mt-5 border-t border-slate-100 pt-4">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Fichiers joints</p>
                 <div className="flex flex-wrap gap-2">{item.attachments.map((attachment) => <div key={attachment.id} className="inline-flex max-w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">

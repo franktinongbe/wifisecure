@@ -47,7 +47,20 @@ router.post('/', requireAuth, requireRole('admin'), asyncHandler(async (req: Aut
     });
     return res.status(201).json({ organization, collectorToken });
   } catch (error) {
-    if ((error as { code?: string }).code === 'P2002') return res.status(409).json({ message: 'Ce code de structure existe déjà.' });
+    if ((error as { code?: string }).code === 'P2002') {
+      const target = (error as { meta?: { target?: string | string[] } }).meta?.target;
+      const fields = Array.isArray(target) ? target.join(' ') : target ?? '';
+      if (fields.includes('slug') || fields.includes('organizations_slug_key')) {
+        return res.status(409).json({ message: 'Ce code de structure existe déjà.' });
+      }
+      if (fields.includes('email') || fields.includes('users_email_key')) {
+        return res.status(409).json({ message: 'Une adresse e-mail de ces comptes est déjà utilisée.' });
+      }
+      if (fields.includes('role') || fields.includes('users_single_agent_account_key')) {
+        return res.status(409).json({ message: 'La base limite encore le compte agent actif à toute la plateforme. Appliquez la migration des comptes par structure puis réessayez.' });
+      }
+      return res.status(409).json({ message: 'Une valeur unique empêche la création. Vérifiez le code et les adresses e-mail.' });
+    }
     throw error;
   }
 }));
