@@ -93,7 +93,7 @@ Le script insert 100+ sessions sur 7 jours et génère des alertes réalistes po
 
 ## Déploiement réseau réel
 
-Le service `apps/ingestor` peut être ajouté pour parser des journaux pfSense/OpenNDS et alimenter l'API d'ingestion. Cette version MVP inclut l'API d'ingestion et le système de seed de démonstration.
+Le service `apps/ingestor` synchronise les clients actuellement connectés au contrôleur UniFi vers l'inventaire **Appareils Wi-Fi** du tableau de bord. Cet inventaire est distinct des sessions : UniFi ne fournit pas à lui seul l'usager, le volume consommé ou le navigateur requis par les événements de session.
 
 ## Scripts utiles
 
@@ -149,6 +149,10 @@ UNIFI_SITE_ID=
 Create and approve a WhatsApp Business Cloud API utility template whose body contains seven placeholders, in order: user ID, infraction, device type, IP address, MAC address, browser, and event date/time. The application sends that template for each new alert. A template must exist before the app can send it.
 
 Configure a UniFi Network integration API key and site ID. Set `UNIFI_API_BASE_URL` to the Network API base; on a UniFi OS console this may include `/proxy/network`. Administrators perform block/unblock actions directly in WiFiSecure from the Alerts page or the `Liste Jaune` page; WiFiSecure sends the corresponding action to the controller in the background. Without a MAC address or reachable/configured UniFi API, the operation is rejected and the database is not marked as blocked.
+
+Pour activer l'inventaire des clients UniFi, configurez aussi `WIFI_INGEST_TOKEN` (le même secret que celui transmis à l'API), `UNIFI_MODE=http` et, facultativement, `INGESTOR_INTERVAL_MS` (15 000 ms par défaut) et `WIFI_ORGANIZATION_SLUG=legacy`. L'ingestor réutilise `UNIFI_API_BASE_URL`, `UNIFI_API_KEY` et `UNIFI_SITE_ID` ci-dessus ; sans site ID, il synchronise tous les sites. En mode `UNIFI_MODE=mock`, il utilise des appareils de démonstration et ne contacte pas la console. N'activez `UNIFI_INSECURE_TLS=true` qu'en développement ; en production, configurez `UNIFI_CA_CERT_PATH` vers le certificat CA de la console. Dans Docker, ce fichier doit être monté dans le conteneur ingestor au chemin configuré.
+
+Avant le premier démarrage avec cette version, appliquez la nouvelle migration : `npm run db:migrate:deploy`. Lancez ensuite `docker compose up --build` ; l'ingestor actualise l'inventaire à chaque intervalle et l'écran **Appareils Wi-Fi** affiche les appareils en ligne ou récemment vus. La route de lecture est réservée aux administrateurs ; le point d'ingestion utilise le jeton de collecte et le slug d'organisation.
 
 ## Archives quotidiennes des connexions
 

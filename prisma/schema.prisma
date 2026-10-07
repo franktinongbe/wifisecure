@@ -65,6 +65,7 @@ model Organization {
   blockedDomains BlockedDomain[]
   settings     Setting[]
   auditLogs    AuditLog[]
+  unifiClients UnifiClient[]
 
   @@map("organizations")
 }
@@ -211,4 +212,26 @@ model AuditLog {
 
   @@index([organizationId, createdAt])
   @@map("audit_logs")
+}
+
+model UnifiClient {
+  id                 String   @id @default(uuid())
+  organizationId     String
+  siteId             String
+  controllerClientId String
+  name               String?
+  type               String?
+  ipAddress          String?  @db.VarChar(64)
+  macAddress         String?  @db.VarChar(64)
+  connectedAt        DateTime?
+  lastSeenAt          DateTime @default(now())
+  online              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, siteId, controllerClientId])
+  @@index([organizationId, siteId, online, lastSeenAt])
+  @@map("unifi_clients")
 }

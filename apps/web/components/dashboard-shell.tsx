@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Archive, Bell, BookOpenText, LayoutDashboard, LogOut, Settings, ShieldCheck, Users, List, Newspaper } from 'lucide-react';
+import { Archive, Bell, BookOpenText, LayoutDashboard, LogOut, Settings, ShieldCheck, Users, List, Newspaper, Wifi } from 'lucide-react';
 import { API_URL, apiFetch } from '../lib/api-client';
 import { useRealtimeRefresh } from '../lib/use-realtime-refresh';
 
@@ -10,6 +10,7 @@ const navItems = [
   { href: '/', label: 'Synthèse', icon: LayoutDashboard },
   { href: '/alerts', label: 'Alertes', icon: Bell },
   { href: '/liste-jaune', label: 'Liste Jaune', icon: List },
+  { href: '/clients', label: 'Appareils Wi-Fi', icon: Wifi },
   { href: '/archives', label: 'Archives', icon: Archive },
   { href: '/actualites', label: 'Actualités', icon: Newspaper },
   { href: '/settings', label: 'Paramètres', icon: Settings },

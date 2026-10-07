@@ -15,6 +15,7 @@ import archiveRoutes from './routes/archives.js';
 import { startDailyArchiveScheduler } from './services/archiveService.js';
 import newsRoutes from './routes/news.js';
 import organizationRoutes from './routes/organizations.js';
+import unifiClientRoutes from './routes/unifiClients.js';
 
 const app = express();
 const PgSession = connectPgSimple(session);
@@ -60,6 +61,7 @@ app.use('/api/export', exportRoutes);
 app.use('/api/blocks', blockRoutes);
 app.use('/api/archives', archiveRoutes);
 app.use('/api/news', newsRoutes);
+app.use('/api/unifi', unifiClientRoutes);
 
 // Keep database/session failures visible in server logs while returning a
 // stable JSON response to clients. Never include connection strings here.

@@ -77,8 +77,8 @@ export function NewsReader({
       <div aria-hidden="true" className="absolute -right-16 -top-24 h-72 w-72 rounded-full bg-blue-50" />
       <div aria-hidden="true" className="absolute right-12 top-10 hidden h-28 w-28 rounded-full border-[18px] border-indigo-50 sm:block" />
       <div className="relative max-w-2xl">
-        <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800"><BookOpen className="h-3.5 w-3.5" /> CAEB · Fondation Vallet</span>
-        <h1 className="mt-5 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Les nouvelles de votre bibliothèque</h1>
+        <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800"><BookOpen className="h-3.5 w-3.5" /> WifiSecure</span>
+        <h1 className="mt-5 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Actualités</h1>
         <p className="mt-3 max-w-xl text-base leading-7 text-slate-600">Retrouvez les annonces, activités et informations utiles partagées par l’équipe.</p>
         <p className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-blue-800"><span className="h-2 w-2 rounded-full bg-emerald-500" />Connecté en tant que {fullName}</p>
       </div>
@@ -90,7 +90,7 @@ export function NewsReader({
     <section aria-labelledby="news-heading">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">Le fil de la bibliothèque</p>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">Le fil d'information</p>
           <h2 id="news-heading" className="mt-1 text-2xl font-bold tracking-tight text-slate-950">Actualités publiées</h2>
           {!loading && <p className="mt-1 text-sm text-slate-500">{visibleItems.length} {visibleItems.length === 1 ? 'information' : 'informations'}</p>}
         </div>
