@@ -23,10 +23,10 @@ services:
       UNIFI_API_BASE_URL: ${UNIFI_API_BASE_URL:-}
       UNIFI_API_KEY: ${UNIFI_API_KEY:-}
       UNIFI_SITE_ID: ${UNIFI_SITE_ID:-}
-      UNIFI_CA_CERT_PATH: /app/apps/ingestor/certs/udm.pem
+      UNIFI_CA_CERT_PATH: /app/apps/ingestor/certs/wifisecure-unifi-ca.pem
       UNIFI_INSECURE_TLS: ${UNIFI_INSECURE_TLS:-false}
     volumes:
-      - ${UNIFI_CA_CERT_HOST_PATH:-./apps/ingestor/certs/udm.pem}:/app/apps/ingestor/certs/udm.pem:ro
+      - ${UNIFI_CA_CERT_HOST_PATH:-./apps/ingestor/certs/wifisecure-unifi-ca.pem}:/app/apps/ingestor/certs/wifisecure-unifi-ca.pem:ro
     ports:
       - "127.0.0.1:4000:4000"
 
@@ -53,10 +53,10 @@ services:
       UNIFI_API_BASE_URL: ${UNIFI_API_BASE_URL:-}
       UNIFI_API_KEY: ${UNIFI_API_KEY:-}
       UNIFI_SITE_ID: ${UNIFI_SITE_ID:-}
-      UNIFI_CA_CERT_PATH: /app/apps/ingestor/certs/udm.pem
+      UNIFI_CA_CERT_PATH: /app/apps/ingestor/certs/wifisecure-unifi-ca.pem
       UNIFI_INSECURE_TLS: ${UNIFI_INSECURE_TLS:-false}
     volumes:
-      - ${UNIFI_CA_CERT_HOST_PATH:-./apps/ingestor/certs/udm.pem}:/app/apps/ingestor/certs/udm.pem:ro
+      - ${UNIFI_CA_CERT_HOST_PATH:-./apps/ingestor/certs/wifisecure-unifi-ca.pem}:/app/apps/ingestor/certs/wifisecure-unifi-ca.pem:ro
 
   web:
     init: true

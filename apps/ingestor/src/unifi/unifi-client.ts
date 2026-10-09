@@ -65,9 +65,14 @@ export class UnifiHttpProvider implements UnifiProvider {
         signal: AbortSignal.timeout(this.cfg.timeoutMs ?? 10_000),
       });
     } catch (error) {
+      const detail = error instanceof Error
+        ? [error.message, error.cause instanceof Error ? error.cause.message : undefined]
+            .filter(Boolean)
+            .join(' : ')
+        : String(error);
       throw new Error(
         `UniFi injoignable (${url.origin}). Vérifie l'IP, le réseau et le certificat TLS ` +
-          `(UNIFI_CA_CERT_PATH). Détail : ${(error as Error).message}`,
+          `(UNIFI_CA_CERT_PATH). Détail : ${detail}`,
       );
     }
 
@@ -154,5 +159,6 @@ export function createUnifiProvider(
     apiKey: UNIFI_API_KEY,
     caCertPath: env.UNIFI_CA_CERT_PATH,
     insecureTls: env.UNIFI_INSECURE_TLS === 'true',
+    timeoutMs: Number(env.UNIFI_TIMEOUT_MS) || 30_000,
   });
 }

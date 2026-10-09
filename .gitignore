@@ -3,6 +3,10 @@ node_modules
 .env
 .env.local
 .env.*.local
+.local-secrets/
+*.key.pem
+*.csr.pem
+*.srl
 coverage
 npm-debug.log*
 .DS_Store

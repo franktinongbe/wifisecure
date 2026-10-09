@@ -18,6 +18,7 @@ let stopped = false;
 let timer: NodeJS.Timeout | undefined;
 
 async function syncOnce() {
+  console.info('Lecture des sites UniFi…');
   const sites = await provider.listSites();
   const selectedSites = configuredSiteId
     ? sites.filter((site) => site.id === configuredSiteId)
@@ -30,7 +31,9 @@ async function syncOnce() {
   }
 
   for (const site of selectedSites) {
+    console.info(`Lecture des clients UniFi : ${site.name} (${site.id})…`);
     const clients = await provider.listClients(site.id);
+    console.info(`Envoi vers WiFiSecure : ${clients.length} clients…`);
     const response = await fetch(`${apiBaseUrl}/api/unifi/sync`, {
       method: 'POST',
       headers: {
@@ -39,7 +42,7 @@ async function syncOnce() {
         'x-wifi-organization': organizationSlug,
       },
       body: JSON.stringify({ siteId: site.id, clients }),
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {
