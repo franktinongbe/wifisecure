@@ -38,6 +38,8 @@ wifisecure/
 cp .env.example .env
 ```
 
+Avant Docker, renseignez les URLs de base, `SESSION_SECRET` et `WIFI_INGEST_TOKEN` avec des valeurs uniques, puis configurez les identifiants UniFi. La stack refuse maintenant de démarrer en production si ces valeurs obligatoires manquent. Gardez `.env` hors de Git.
+
 2. Lancer la stack complète :
 
 ```bash
@@ -169,3 +171,9 @@ Le formulaire accepte un nombre non limité de fichiers, quels que soient leur t
 `Liste Jaune` is the incident register: it lists every recorded network alert with the user/device details collected at ingestion and the current block state for that MAC address.
 
 The collector must send `adresse_ip`, `adresse_mac`, and `navigateur` with each session event for those incident details to appear. UniFi does not provide a browser user-agent from its client record, so the captive portal/collector must provide it.
+
+## Sécurité et limites du portail
+
+En production, publiez l'interface derrière un proxy HTTPS, définissez `FRONTEND_URL` sur son origine HTTPS exacte et gardez les ports Docker liés à `127.0.0.1`. Remplacez les secrets locaux par des secrets propres à l'environnement de déploiement. Le certificat CA UniFi doit être monté en lecture seule ; son certificat serveur doit correspondre au nom ou à l'adresse utilisés dans `UNIFI_API_BASE_URL`. Laissez `UNIFI_INSECURE_TLS=false`.
+
+WiFiSecure collecte l'inventaire et les événements transmis par le collecteur. La route `/api/auth/network/connect` ne fait qu'une simulation locale ; elle n'authentifie pas un client Wi-Fi et ne lui accorde pas l'accès Internet. La sécurité d'accès réelle doit être configurée sur UniFi (SSID, VLAN, règles de pare-feu et portail captif ou RADIUS). Vérifiez aussi que les actions de blocage sont prises en charge par la version Network installée avant de les utiliser en exploitation.

@@ -2,6 +2,11 @@ version: '3.9'
 
 services:
   api:
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -12,13 +17,25 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       DIRECT_URL: ${DIRECT_URL}
       SESSION_DATABASE_URL: ${SESSION_DATABASE_URL:-}
-      SESSION_SECRET: ${SESSION_SECRET:-super-secret-session-key-change-me}
+      SESSION_SECRET: ${SESSION_SECRET:?Set a unique SESSION_SECRET of at least 32 characters}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       WIFI_INGEST_TOKEN: ${WIFI_INGEST_TOKEN:-}
+      UNIFI_API_BASE_URL: ${UNIFI_API_BASE_URL:-}
+      UNIFI_API_KEY: ${UNIFI_API_KEY:-}
+      UNIFI_SITE_ID: ${UNIFI_SITE_ID:-}
+      UNIFI_CA_CERT_PATH: /app/apps/ingestor/certs/udm.pem
+      UNIFI_INSECURE_TLS: ${UNIFI_INSECURE_TLS:-false}
+    volumes:
+      - ${UNIFI_CA_CERT_HOST_PATH:-./apps/ingestor/certs/udm.pem}:/app/apps/ingestor/certs/udm.pem:ro
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
 
   ingestor:
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     build:
       context: .
       dockerfile: apps/ingestor/Dockerfile
@@ -36,10 +53,17 @@ services:
       UNIFI_API_BASE_URL: ${UNIFI_API_BASE_URL:-}
       UNIFI_API_KEY: ${UNIFI_API_KEY:-}
       UNIFI_SITE_ID: ${UNIFI_SITE_ID:-}
-      UNIFI_CA_CERT_PATH: ${UNIFI_CA_CERT_PATH:-}
+      UNIFI_CA_CERT_PATH: /app/apps/ingestor/certs/udm.pem
       UNIFI_INSECURE_TLS: ${UNIFI_INSECURE_TLS:-false}
+    volumes:
+      - ${UNIFI_CA_CERT_HOST_PATH:-./apps/ingestor/certs/udm.pem}:/app/apps/ingestor/certs/udm.pem:ro
 
   web:
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     build:
       context: .
       dockerfile: apps/web/Dockerfile
@@ -52,4 +76,4 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"

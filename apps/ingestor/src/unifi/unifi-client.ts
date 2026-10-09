@@ -1,5 +1,6 @@
 import { Agent, fetch } from 'undici';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 export interface UnifiSite {
   id: string;
@@ -34,7 +35,14 @@ export class UnifiHttpProvider implements UnifiProvider {
   private dispatcher: Agent;
 
   constructor(private cfg: HttpConfig) {
-    const ca = cfg.caCertPath ? readFileSync(cfg.caCertPath) : undefined;
+    const caPathCandidates = cfg.caCertPath
+      ? [resolve(process.cwd(), cfg.caCertPath), resolve(process.cwd(), '..', '..', cfg.caCertPath)]
+      : [];
+    const caPath = caPathCandidates.find((candidate) => existsSync(candidate));
+    if (cfg.caCertPath && !caPath) {
+      throw new Error('UNIFI_CA_CERT_PATH ne pointe pas vers un certificat lisible.');
+    }
+    const ca = caPath ? readFileSync(caPath) : undefined;
     this.dispatcher = new Agent({
       connect: { ca, rejectUnauthorized: !cfg.insecureTls },
     });
@@ -129,6 +137,10 @@ export function createUnifiProvider(
   env: NodeJS.ProcessEnv = process.env,
 ): UnifiProvider {
   if (env.UNIFI_MODE === 'mock') return new MockUnifiProvider();
+
+  if (env.NODE_ENV === 'production' && env.UNIFI_INSECURE_TLS === 'true') {
+    throw new Error('UNIFI_INSECURE_TLS ne peut pas être activé en production.');
+  }
 
   const UNIFI_BASE_URL = env.UNIFI_BASE_URL ?? env.UNIFI_API_BASE_URL;
   const { UNIFI_API_KEY } = env;

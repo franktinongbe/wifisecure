@@ -1,6 +1,27 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { Agent, fetch } from 'undici';
 import { env } from '../config/env.js';
 
 type UniFiClient = { id: string; macAddress: string };
+
+function loadUniFiCa() {
+  if (!env.unifiCaCertPath) return undefined;
+  const candidates = [
+    resolve(process.cwd(), env.unifiCaCertPath),
+    resolve(process.cwd(), '..', '..', env.unifiCaCertPath),
+  ];
+  const path = candidates.find((candidate) => existsSync(candidate));
+  if (!path) throw new Error('UNIFI_CA_CERT_PATH does not point to a readable certificate.');
+  return readFileSync(path);
+}
+
+const unifiDispatcher = new Agent({
+  connect: {
+    ca: loadUniFiCa(),
+    rejectUnauthorized: !env.unifiInsecureTls,
+  },
+});
 
 export class UniFiIntegrationError extends Error {
   constructor(message: string, readonly statusCode = 502) {
@@ -40,6 +61,7 @@ async function findClientId(macAddress: string) {
   url.searchParams.set('filter', `macAddress.eq('${mac}')`);
   const response = await fetch(url, {
     headers: { Accept: 'application/json', 'X-API-Key': env.unifiApiKey },
+    dispatcher: unifiDispatcher,
     signal: AbortSignal.timeout(12000),
   });
   if (!response.ok) throw new UniFiIntegrationError(`UniFi client lookup failed (HTTP ${response.status}).`);
@@ -62,6 +84,7 @@ export async function setUniFiClientBlocked(macAddress: string, blocked: boolean
       'Content-Type': 'application/json',
       'X-API-Key': env.unifiApiKey,
     },
+    dispatcher: unifiDispatcher,
     body: JSON.stringify({ action: blocked ? 'BLOCK' : 'UNBLOCK' }),
     signal: AbortSignal.timeout(12000),
   });

@@ -4,16 +4,17 @@ import { z } from 'zod';
 import { prisma } from '../lib/db.js';
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../middleware/auth.js';
 import { asyncHandler } from '../lib/async-handler.js';
+import { loginRateLimit } from '../middleware/loginRateLimit.js';
 
 const router = Router();
 
 const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6),
+  password: z.string().min(6).max(256),
   organizationSlug: z.string().min(1).max(80).default('legacy'),
 });
 
-router.post('/login', asyncHandler(async (req, res) => {
+router.post('/login', loginRateLimit, asyncHandler(async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ message: 'Identifiants invalides.', errors: parsed.error.flatten() });
@@ -29,7 +30,13 @@ router.post('/login', asyncHandler(async (req, res) => {
     return res.status(401).json({ message: 'Identifiants incorrects.' });
   }
 
-  (req as any).session.user = { id: user.id, email: user.email, role: user.role, organizationId: user.organizationId };
+  await new Promise<void>((resolve, reject) => {
+    req.session.regenerate((error) => error ? reject(error) : resolve());
+  });
+  req.session.user = { id: user.id, email: user.email, role: user.role, organizationId: user.organizationId };
+  await new Promise<void>((resolve, reject) => {
+    req.session.save((error) => error ? reject(error) : resolve());
+  });
 
   return res.json({
     user: {
@@ -46,7 +53,7 @@ router.post('/logout', async (req, res) => {
     if (err) {
       return res.status(500).json({ message: 'Erreur lors de la déconnexion.' });
     }
-    res.clearCookie('connect.sid');
+    res.clearCookie(process.env.NODE_ENV === 'production' ? '__Host-wifisecure.sid' : 'connect.sid', { path: '/' });
     res.json({ message: 'Déconnexion réussie.' });
   });
 });

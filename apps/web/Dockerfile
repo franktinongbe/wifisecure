@@ -16,6 +16,8 @@ RUN npm install
 COPY apps/web ./
 
 RUN npm run build
+RUN chown -R node:node /app/apps/web/.next
+USER node
 
 EXPOSE 3000
 CMD ["npm", "start"]

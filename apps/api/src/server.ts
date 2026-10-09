@@ -20,8 +20,28 @@ import unifiClientRoutes from './routes/unifiClients.js';
 const app = express();
 const PgSession = connectPgSimple(session);
 const isProduction = process.env.NODE_ENV === 'production';
+const allowedOrigins = new Set(env.frontendOrigins);
+
+app.disable('x-powered-by');
 
 if (isProduction) app.set('trust proxy', 1);
+
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (isProduction && req.secure) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+
+  const origin = req.header('origin');
+  const isMutation = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
+  if (isMutation && origin && !allowedOrigins.has(origin)) {
+    return res.status(403).json({ message: 'Origine de requête refusée.' });
+  }
+  next();
+});
 
 // Prisma returns BigInt for byte counters, which JSON.stringify cannot encode.
 app.set('json replacer', (_key: string, value: unknown) =>
@@ -29,11 +49,12 @@ app.set('json replacer', (_key: string, value: unknown) =>
 );
 
 app.use(cors({
-  origin: true,
+  origin: (origin, callback) => callback(null, !origin || allowedOrigins.has(origin)),
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(session({
+  name: isProduction ? '__Host-wifisecure.sid' : 'connect.sid',
   store: new PgSession({
     conString: env.sessionDatabaseUrl,
     tableName: 'user_sessions',
@@ -46,6 +67,8 @@ app.use(session({
     httpOnly: true,
     secure: isProduction,
     sameSite: 'lax',
+    path: '/',
+    maxAge: 8 * 60 * 60 * 1000,
   },
 }));
 

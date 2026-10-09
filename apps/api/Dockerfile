@@ -7,6 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY apps/api/package*.json ./apps/api/
 COPY prisma ./prisma
+RUN mkdir -p /app/apps/ingestor/certs
 
 RUN npm install
 WORKDIR /app/apps/api
@@ -17,6 +18,7 @@ COPY prisma ./../../prisma
 
 RUN npx prisma generate --schema ../../prisma/schema.prisma
 RUN npm run build
+USER node
 
 EXPOSE 4000
 CMD ["npm", "start"]

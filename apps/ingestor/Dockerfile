@@ -12,5 +12,6 @@ RUN npm ci --workspace apps/ingestor --include-workspace-root=false
 COPY apps/ingestor ./apps/ingestor
 WORKDIR /app/apps/ingestor
 RUN npm run build
+USER node
 
 CMD ["npm", "start"]
